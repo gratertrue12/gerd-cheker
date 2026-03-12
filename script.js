@@ -161,17 +161,37 @@ async function openCamera(){
     alert("Kamera tidak bisa diakses: "+e.message);
   }
 }
+function takePhoto() {
+    const video = document.getElementById("camera");
+    const canvas = document.getElementById("photoCanvas");
+    if (!video || !canvas) return;
 
-function takePhoto(){
-  const video=document.getElementById("camera");
-  const canvas=document.getElementById("photoCanvas");
-  const context=canvas.getContext("2d");
-  canvas.width=video.videoWidth;
-  canvas.height=video.videoHeight;
-  context.drawImage(video,0,0,canvas.width,canvas.height);
-  canvas.classList.remove("hidden");
-  const imageData=canvas.toDataURL("image/png");
-  console.log("Foto berhasil diambil:", imageData);
+    const context = canvas.getContext("2d");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Ambil frame dari video
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Tampilkan canvas
+    canvas.classList.remove("hidden");
+
+    // Ambil data URL (gambar dalam format base64)
+    const imageData = canvas.toDataURL("image/png");
+
+    // Tampilkan hasil foto di img#capturedImage
+    let img = document.getElementById("capturedImage");
+    if (!img) {
+        img = document.createElement("img");
+        img.id = "capturedImage";
+        img.style.width = "100%";
+        img.style.marginTop = "10px";
+        video.parentElement.appendChild(img);
+    }
+    img.src = imageData;
+    img.style.display = "block";
+
+    console.log("Foto berhasil diambil:", imageData);
 }
 
 // ================= ACCOUNT =================
@@ -237,3 +257,4 @@ window.onload=function(){
   foodList.sort((a,b)=>a.name.localeCompare(b.name));
   renderFoodList(foodList);
 }
+
