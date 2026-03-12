@@ -283,9 +283,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  classifier = await ml5.imageClassifier('MobileNet', () => {
+  try {
+    classifier = await ml5.imageClassifier('MobileNet');
     console.log("Model MobileNet siap!");
-  });
+  } catch (err) {
+    console.error("Gagal memuat MobileNet:", err);
+    alert("Gagal memuat model AI. Periksa koneksi internet.");
+  }
+});
 
 
 
