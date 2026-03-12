@@ -1,4 +1,4 @@
-const APP_ID="83a6c971";
+
 const APP_KEY="f57d9ecae7775582f830d07bfeecfbf4";
 
 let chart;
@@ -291,6 +291,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     alert("Gagal memuat model AI. Periksa koneksi internet.");
   }
 });
+
 
 
 
