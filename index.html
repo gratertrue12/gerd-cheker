@@ -1,13 +1,15 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ml5/0.12.2/ml5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@v4.1.1/dist/tesseract.min.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GERD Checker</title>
 <link rel="stylesheet" href="style.css">
+
+<!-- Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ml5/0.12.2/ml5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 </head>
 <body>
 <div class="app">
@@ -19,7 +21,21 @@
   </header>
 
   <!-- CEK MAKANAN -->
-  
+  <section id="cek" class="section hidden">
+    <div class="card">
+      <h2>Cek Makanan</h2>
+      <video id="camera" autoplay class="hidden" style="width:300px;"></video>
+      <img id="capturedImage" class="hidden" style="width:200px;height:auto;margin-top:10px;">
+      <input id="foodInput" placeholder="Nama makanan atau hasil AI" style="margin-top:10px;width:90%;">
+      <div style="margin-top:10px;">
+        <button onclick="openCamera()">Buka Kamera</button>
+        <button onclick="takePhoto()">Ambil Foto</button>
+        <button onclick="cekFood()">Cek Nutrisi</button>
+      </div>
+      <div id="result" style="margin-top:10px;"></div>
+      <canvas id="nutritionChart" style="margin-top:10px;"></canvas>
+    </div>
+  </section>
 
   <!-- DATABASE MAKANAN -->
   <section id="makanan" class="section hidden">
@@ -67,9 +83,7 @@
 
 </div>
 
+<!-- Script utama -->
 <script src="script.js"></script>
 </body>
 </html>
-
-
-
