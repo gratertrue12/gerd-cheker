@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,41 +18,44 @@
     <section id="account" class="section">
       <h2>Akun</h2>
       <input type="text" id="username" placeholder="Masukkan nama akun">
-      <button onclick="saveUser()">Simpan Akun</button>
+      <button id="saveAccount">Simpan Akun</button>
     </section>
 
     <section id="food" class="section hidden">
-      <h2>Pencarian Makanan</h2>
-      <input type="text" id="searchFood" oninput="searchFood()" placeholder="Cari makanan...">
+      <h2>Pencarian & AI Makanan</h2>
+      <input type="text" id="searchFood" placeholder="Cari makanan...">
       <div id="foodListContainer"></div>
       <input type="text" id="foodInput" placeholder="Masukkan makanan (contoh: 100 g apple)">
-      <button onclick="cekFood()">Cek Makanan</button>
+      <button id="checkFood">Cek Makanan</button>
       <div id="result"></div>
       <canvas id="nutritionChart"></canvas>
-      <button onclick="openCamera()">Buka Kamera</button>
-      <video id="camera" class="hidden" autoplay playsinline></video>
-      <button onclick="takePhoto()">Ambil Foto</button>
-      <img id="capturedImage" class="hidden">
+
+      <div class="camera-section">
+        <button id="openCamera">Buka Kamera</button>
+        <video id="camera" autoplay playsinline class="hidden"></video>
+        <button id="takePhoto">Ambil Foto</button>
+        <img id="capturedImage" class="hidden">
+      </div>
     </section>
 
     <section id="bmi" class="section hidden">
       <h2>Kalkulator BMI</h2>
       <input type="number" id="weight" placeholder="Berat (kg)">
       <input type="number" id="height" placeholder="Tinggi (cm)">
-      <button onclick="hitungBMI()">Hitung BMI</button>
+      <button id="calculateBMI">Hitung BMI</button>
       <div id="bmiResult"></div>
     </section>
 
-    <section id="riwayat" class="section hidden">
+    <section id="history" class="section hidden">
       <h2>Riwayat Penggunaan</h2>
       <div id="historyList"></div>
     </section>
 
     <div class="navbar">
-      <button onclick="showSection('account')">Akun</button>
-      <button onclick="showSection('food')">Makanan</button>
-      <button onclick="showSection('bmi')">BMI</button>
-      <button onclick="showSection('riwayat')">Riwayat</button>
+      <button data-section="account">Akun</button>
+      <button data-section="food">Makanan</button>
+      <button data-section="bmi">BMI</button>
+      <button data-section="history">Riwayat</button>
     </div>
   </div>
 
