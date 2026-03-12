@@ -267,7 +267,7 @@ function hitungBMI(){
 }
 
 // ================= INIT =================
-window.onload = async function() {
+window.addEventListener("DOMContentLoaded", async () => {
   currentUser = localStorage.getItem("user") || "";
   const welcome = document.getElementById("welcome");
   if(currentUser && welcome){
@@ -278,10 +278,21 @@ window.onload = async function() {
   renderFoodList(foodList);
 
   // ================= LOAD MODEL AI =================
+  if (!window.ml5) {
+    alert("ML5 library belum siap. Periksa koneksi internet.");
+    return;
+  }
+
+  classifier = await ml5.imageClassifier('MobileNet', () => {
+    console.log("Model MobileNet siap!");
+  });
+});
+  // ================= LOAD MODEL AI =================
   classifier = await ml5.imageClassifier('MobileNet', () => {
     console.log("Model MobileNet siap!");
   });
 };
+
 
 
 
