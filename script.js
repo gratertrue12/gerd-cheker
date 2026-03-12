@@ -286,12 +286,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   classifier = await ml5.imageClassifier('MobileNet', () => {
     console.log("Model MobileNet siap!");
   });
-});
-  // ================= LOAD MODEL AI =================
-  classifier = await ml5.imageClassifier('MobileNet', () => {
-    console.log("Model MobileNet siap!");
-  });
-};
+
+
 
 
 
