@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>GERD Checker</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- TOP BAR -->
+
+<header class="topbar">
+<h1>GERD Checker</h1>
+<p id="welcome">Halo</p>
+</header>
+
+
+
+<!-- ================= CEK MAKANAN ================= -->
+
+<section id="cek" class="section">
+
+<div class="card">
+
+<h2>Cek Makanan</h2>
+
+<input id="foodInput" placeholder="contoh: 100 g apple">
+
+<button onclick="cekFood()">Cek Makanan</button>
+
+<button onclick="openCamera()">Scan Kamera</button>
+
+<video id="camera" class="hidden" autoplay></video>
+
+</div>
+
+<div id="result"></div>
+
+<canvas id="nutritionChart"></canvas>
+
+</section>
+
+
+
+<!-- ================= DATABASE MAKANAN ================= -->
+
+<section id="makanan" class="section hidden">
+
+<div class="card">
+
+<h2>Database Makanan</h2>
+
+<input id="searchFood" placeholder="Cari makanan" oninput="searchFood()">
+
+</div>
+
+<div id="foodListContainer"></div>
+
+</section>
+
+
+
+<!-- ================= BMI ================= -->
+
+<section id="bmi" class="section hidden">
+
+<div class="card">
+
+<h2>Kalkulator BMI</h2>
+
+<input id="weight" placeholder="Berat kg">
+
+<input id="height" placeholder="Tinggi cm">
+
+<button onclick="hitungBMI()">Hitung BMI</button>
+
+</div>
+
+<div id="bmiResult"></div>
+
+</section>
+
+
+
+<!-- ================= RIWAYAT ================= -->
+
+<section id="riwayat" class="section hidden">
+
+<h2>Riwayat</h2>
+
+<div id="historyList"></div>
+
+</section>
+
+
+
+<!-- ================= AKUN ================= -->
+
+<section id="akun" class="section hidden">
+
+<div class="card">
+
+<h2>Akun</h2>
+
+<input id="username" placeholder="Nama pengguna">
+
+<button onclick="saveUser()">Simpan</button>
+
+</div>
+
+</section>
+
+
+
+<!-- ================= NAVIGATION ================= -->
+
+<nav class="navbar">
+
+<button onclick="showSection('cek')">Cek</button>
+
+<button onclick="showSection('makanan')">Makanan</button>
+
+<button onclick="showSection('bmi')">BMI</button>
+
+<button onclick="showSection('riwayat')">Riwayat</button>
+
+<button onclick="showSection('akun')">Akun</button>
+
+</nav>
+
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
+
