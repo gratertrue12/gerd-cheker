@@ -135,3 +135,10 @@ video{
   border-radius:8px;
   display:none;
 }
+#capturedImage {
+  display: none; /* awalnya tersembunyi */
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+}
+
