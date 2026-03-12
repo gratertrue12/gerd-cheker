@@ -151,57 +151,62 @@ function addDailyFood(food,cal){
 }
 
 // ================= CAMERA =================
-async function openCamera(){
-  const video=document.getElementById("camera");
-  if(!video) return;
+async function openCamera() {
+  const video = document.getElementById("camera");
+  if (!video) return;
+
   video.classList.remove("hidden");
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false});
-    video.srcObject=stream;
-  }catch(e){
-    alert("Kamera tidak bisa diakses: "+e.message);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play(); // pastikan video siap
+    console.log("Kamera siap");
+  } catch (e) {
+    alert("Kamera tidak bisa diakses: " + e.message);
   }
 }
+
 async function takePhoto() {
   const video = document.getElementById("camera");
   const img = document.getElementById("capturedImage");
   const input = document.getElementById("foodInput");
-  if(!video || !img || !input || !classifier){
-    alert("Video atau classifier belum siap!");
+  if (!video || !img || !input || !classifier) {
+    alert("Video atau AI belum siap!");
     return;
   }
 
-  if(video.videoWidth === 0 || video.videoHeight === 0){
+  if (video.videoWidth === 0 || video.videoHeight === 0) {
     alert("Video belum siap. Tunggu beberapa detik lalu coba lagi.");
     return;
   }
 
-  // Ambil frame
+  // Ambil frame dari video
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
 
+  // Tampilkan foto
   const imageData = canvas.toDataURL("image/png");
   img.src = imageData;
   img.classList.remove("hidden");
-  img.style.display = "block";
 
   input.value = "Mendeteksi makanan...";
 
   // Klasifikasi gambar
   classifier.classify(img, (err, results) => {
-    if(err){
+    if (err) {
       console.error(err);
-      input.value = "";
-      alert("Gagal mengenali makanan");
+      input.value = "Gagal mengenali makanan";
       return;
     }
 
     const topLabel = results[0].label.toLowerCase();
     const matchedFood = foodList.find(f => topLabel.includes(f.name.toLowerCase()));
-    if(matchedFood) input.value = matchedFood.normal;
-    else input.value = topLabel;
+    input.value = matchedFood ? matchedFood.normal : topLabel;
   });
 }
 
@@ -277,6 +282,7 @@ window.onload = async function() {
     console.log("Model MobileNet siap!");
   });
 };
+
 
 
 
