@@ -162,17 +162,26 @@ async function openCamera(){
     alert("Kamera tidak bisa diakses: "+e.message);
   }
 }
-function takePhoto() {
+async function takePhoto() {
   const video = document.getElementById("camera");
   const img = document.getElementById("capturedImage");
   const input = document.getElementById("foodInput");
-  if(!video || !img || !input || !classifier) return;
+  if(!video || !img || !input || !classifier){
+    alert("Video atau classifier belum siap!");
+    return;
+  }
 
-  // Ambil frame dari video ke <img>
+  if(video.videoWidth === 0 || video.videoHeight === 0){
+    alert("Video belum siap. Tunggu beberapa detik lalu coba lagi.");
+    return;
+  }
+
+  // Ambil frame
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+
   const imageData = canvas.toDataURL("image/png");
   img.src = imageData;
   img.classList.remove("hidden");
@@ -180,7 +189,7 @@ function takePhoto() {
 
   input.value = "Mendeteksi makanan...";
 
-  // Klasifikasi gambar dengan MobileNet
+  // Klasifikasi gambar
   classifier.classify(img, (err, results) => {
     if(err){
       console.error(err);
@@ -190,12 +199,9 @@ function takePhoto() {
     }
 
     const topLabel = results[0].label.toLowerCase();
-
-    // Cocokkan label AI dengan daftar foodList
     const matchedFood = foodList.find(f => topLabel.includes(f.name.toLowerCase()));
-
     if(matchedFood) input.value = matchedFood.normal;
-    else input.value = topLabel; // jika tidak match, tampilkan label AI
+    else input.value = topLabel;
   });
 }
 
@@ -271,5 +277,6 @@ window.onload = async function() {
     console.log("Model MobileNet siap!");
   });
 };
+
 
 
