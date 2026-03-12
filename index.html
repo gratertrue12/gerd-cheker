@@ -5,63 +5,66 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GERD Checker</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    .hidden { display: none; }
-    .food-card { padding: 5px; margin: 5px; border: 1px solid #ccc; cursor: pointer; }
-    .card { border: 1px solid #ccc; padding: 10px; margin: 5px; }
-    .progress-bar { padding: 5px; color: #fff; }
-    .good { background-color: green; }
-    .warning { background-color: orange; }
-    .bad { background-color: red; }
-  </style>
 </head>
 <body>
+  <div class="app">
 
-  <h1 id="welcome">Halo!</h1>
+    <!-- Top Bar -->
+    <div class="topbar">
+      <h1 id="welcome">Halo!</h1>
+      <p>Selamat datang di GERD Checker</p>
+    </div>
 
-  <!-- Menu -->
-  <nav>
-    <button onclick="showSection('checker')">Checker</button>
-    <button onclick="showSection('riwayat')">Riwayat</button>
-  </nav>
+    <!-- Sections -->
+    <!-- Checker Section -->
+    <div id="checker" class="section">
+      <h2>GERD Checker</h2>
+      <input type="text" id="foodInput" placeholder="Masukkan makanan, contoh: 100 g apple">
+      <button onclick="cekFood()">Cek GERD</button>
+      <div id="result" class="card"></div>
 
-  <!-- Checker Section -->
-  <div id="checker" class="section">
-    <input type="text" id="foodInput" placeholder="Masukkan makanan, contoh: 100 g apple">
-    <button onclick="cekFood()">Cek GERD</button>
-    <div id="result"></div>
-    <canvas id="nutritionChart"></canvas>
-    
-    <input type="text" id="searchFood" placeholder="Cari makanan..." oninput="searchFood()">
-    <div id="foodListContainer"></div>
+      <canvas id="nutritionChart"></canvas>
 
-    <video id="camera" class="hidden" width="320" height="240" autoplay></video>
-    <img id="capturedImage" class="hidden" alt="Captured Image">
-    <button onclick="openCamera()">Buka Kamera</button>
-    <button onclick="takePhoto()">Ambil Foto</button>
-  </div>
+      <h2>Daftar Makanan</h2>
+      <input type="text" id="searchFood" placeholder="Cari makanan..." oninput="searchFood()">
+      <div id="foodListContainer"></div>
 
-  <!-- Riwayat Section -->
-  <div id="riwayat" class="section hidden">
-    <div id="historyList"></div>
-  </div>
+      <h2>Kamera</h2>
+      <video id="camera" autoplay class="hidden"></video>
+      <img id="capturedImage" alt="Foto Makanan">
+      <button onclick="openCamera()">Buka Kamera</button>
+      <button onclick="takePhoto()">Ambil Foto</button>
 
-  <!-- User Account -->
-  <div>
-    <input type="text" id="username" placeholder="Nama akun">
-    <button onclick="saveUser()">Simpan Akun</button>
-  </div>
+      <h2>BMI</h2>
+      <input type="number" id="weight" placeholder="Berat (kg)">
+      <input type="number" id="height" placeholder="Tinggi (cm)">
+      <button onclick="hitungBMI()">Hitung BMI</button>
+      <div id="bmiResult" class="card"></div>
+    </div>
 
-  <!-- BMI -->
-  <div>
-    <input type="number" id="weight" placeholder="Berat (kg)">
-    <input type="number" id="height" placeholder="Tinggi (cm)">
-    <button onclick="hitungBMI()">Hitung BMI</button>
-    <div id="bmiResult"></div>
+    <!-- Riwayat Section -->
+    <div id="riwayat" class="section hidden">
+      <h2>Riwayat</h2>
+      <div id="historyList" class="card"></div>
+    </div>
+
+    <!-- User Account -->
+    <div class="section">
+      <h2>Akun</h2>
+      <input type="text" id="username" placeholder="Nama akun">
+      <button onclick="saveUser()">Simpan Akun</button>
+    </div>
+
+    <!-- Navbar -->
+    <div class="navbar">
+      <button onclick="showSection('checker')">Checker</button>
+      <button onclick="showSection('riwayat')">Riwayat</button>
+    </div>
+
   </div>
 
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ml5/0.12.2/ml5.min.js"></script>
-  <script src="script.js"></script> <!-- pastikan ini file script.js-mu yang sudah diisi APP_ID dan APP_KEY -->
+  <script src="script.js"></script>
 </body>
 </html>
