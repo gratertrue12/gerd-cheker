@@ -1,5 +1,5 @@
-onst APP_ID="fa8057e3";
-const APP_KEY="010b6c60ab741559675bae7899ad6af1";
+onst APP_ID="83a6c971";
+const APP_KEY="f57d9ecae7775582f830d07bfeecfbf4";
 
 let chart;
 let classifier; 
@@ -290,9 +290,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     console.error("Gagal memuat MobileNet:", err);
     alert("Gagal memuat model AI. Periksa koneksi internet.");
   }
-});
-
-
+}); bagian mana yg eror 
 
 
 
