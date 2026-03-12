@@ -410,4 +410,24 @@ foodList.sort((a,b)=>a.name.localeCompare(b.name));
 renderFoodList(foodList);
 
 }
+async function startCamera(){
+
+try{
+
+const stream = await navigator.mediaDevices.getUserMedia({
+video:{
+facingMode:"environment"
+}
+});
+
+const video=document.getElementById("video");
+video.srcObject=stream;
+
+}catch(err){
+
+alert("Kamera tidak bisa diakses");
+
+}
+
+}
 
