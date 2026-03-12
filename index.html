@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GERD Checker App</title>
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.png" />
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
 </head>
@@ -13,27 +13,34 @@
   <div class="app">
     <div class="topbar">
       <h1>GERD Checker</h1>
-      <p id="welcome">Halo, cek makanan Anda tanpa akun!</p>
+      <p id="welcome">Halo, silakan masukkan nama akun</p>
     </div>
 
-    <section id="food" class="section">
+    <section id="account" class="section">
+      <h2>Akun / Tamu</h2>
+      <input type="text" id="username" placeholder="Masukkan nama akun (opsional)" />
+      <button onclick="saveUser()">Set Nama</button>
+    </section>
+
+    <section id="food" class="section hidden">
       <h2>Pencarian Makanan</h2>
-      <input type="text" id="searchFood" oninput="searchFood()" placeholder="Cari makanan...">
+      <input type="text" id="searchFood" placeholder="Cari makanan..." oninput="searchFood()"/>
       <div id="foodListContainer"></div>
-      <input type="text" id="foodInput" placeholder="Masukkan makanan (contoh: 100 g apple)">
+      <input type="text" id="foodInput" placeholder="Masukkan makanan (contoh: 100 g apple)" />
       <button onclick="cekFood()">Cek Makanan</button>
       <div id="result"></div>
       <canvas id="nutritionChart"></canvas>
+
       <button onclick="openCamera()">Buka Kamera</button>
-      <video id="camera" class="hidden"></video>
+      <video id="camera" class="hidden" autoplay muted playsinline></video>
       <button onclick="takePhoto()">Ambil Foto</button>
-      <img id="capturedImage" class="hidden">
+      <img id="capturedImage" class="hidden" alt="Captured food image"/>
     </section>
 
     <section id="bmi" class="section hidden">
       <h2>Kalkulator BMI</h2>
-      <input type="number" id="weight" placeholder="Berat (kg)">
-      <input type="number" id="height" placeholder="Tinggi (cm)">
+      <input type="number" id="weight" placeholder="Berat (kg)" />
+      <input type="number" id="height" placeholder="Tinggi (cm)" />
       <button onclick="hitungBMI()">Hitung BMI</button>
       <div id="bmiResult"></div>
     </section>
@@ -44,11 +51,13 @@
     </section>
 
     <div class="navbar">
+      <button onclick="showSection('account')">Akun</button>
       <button onclick="showSection('food')">Makanan</button>
       <button onclick="showSection('bmi')">BMI</button>
       <button onclick="showSection('riwayat')">Riwayat</button>
     </div>
   </div>
-  <script src="script.js"></script>
+
+  <script src="app.js"></script>
 </body>
 </html>
