@@ -1,7 +1,7 @@
 // === API KEYS ===
-const EDAMAM_APP_ID = 'YOUR_EDAMAM_APP_ID';
-const EDAMAM_APP_KEY = 'YOUR_EDAMAM_APP_KEY';
-const LOGMEAL_API_KEY = 'YOUR_LOGMEAL_API_KEY';
+const EDAMAM_APP_ID = '83a6c971';
+const EDAMAM_APP_KEY = 'f57d9ecae7775582f830d07bfeecfbf4';
+const LOGMEAL_API_KEY = '937a44034a0fac902bd07ab4bceae7a13a233497';
 
 let chart, classifier;
 let currentUser = "";
@@ -206,3 +206,4 @@ function hitungBMI(){
   else if(bmi<30) category="Overweight"; else category="Obesitas";
   document.getElementById("bmiResult").innerHTML=`<div class="card">IMT: ${bmi.toFixed(1)} (${category})</div>`;
 }
+
