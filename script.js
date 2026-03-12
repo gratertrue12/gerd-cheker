@@ -164,31 +164,25 @@ async function openCamera(){
 function takePhoto() {
     const video = document.getElementById("camera");
     const canvas = document.getElementById("photoCanvas");
-    if (!video || !canvas) return;
+    const img = document.getElementById("capturedImage");
 
-    const context = canvas.getContext("2d");
+    if (!video || !canvas || !img) return;
+
+    // Sesuaikan ukuran canvas dengan video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    // Ambil frame dari video
+    const context = canvas.getContext("2d");
+
+    // Ambil frame dari video ke canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Tampilkan canvas
-    canvas.classList.remove("hidden");
-
-    // Ambil data URL (gambar dalam format base64)
+    // Ubah canvas menjadi gambar base64
     const imageData = canvas.toDataURL("image/png");
 
-    // Tampilkan hasil foto di img#capturedImage
-    let img = document.getElementById("capturedImage");
-    if (!img) {
-        img = document.createElement("img");
-        img.id = "capturedImage";
-        img.style.width = "100%";
-        img.style.marginTop = "10px";
-        video.parentElement.appendChild(img);
-    }
+    // Tampilkan di <img>
     img.src = imageData;
+    img.classList.remove("hidden");
     img.style.display = "block";
 
     console.log("Foto berhasil diambil:", imageData);
@@ -257,4 +251,5 @@ window.onload=function(){
   foodList.sort((a,b)=>a.name.localeCompare(b.name));
   renderFoodList(foodList);
 }
+
 
