@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GERD Checker App</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
@@ -12,53 +13,42 @@
   <div class="app">
     <div class="topbar">
       <h1>GERD Checker</h1>
-      <p id="welcome">Halo, silakan masukkan nama akun</p>
+      <p id="welcome">Halo, cek makanan Anda tanpa akun!</p>
     </div>
 
-    <section id="account" class="section">
-      <h2>Akun</h2>
-      <input type="text" id="username" placeholder="Masukkan nama akun">
-      <button id="saveAccount">Simpan Akun</button>
-    </section>
-
-    <section id="food" class="section hidden">
-      <h2>Pencarian & AI Makanan</h2>
-      <input type="text" id="searchFood" placeholder="Cari makanan...">
+    <section id="food" class="section">
+      <h2>Pencarian Makanan</h2>
+      <input type="text" id="searchFood" oninput="searchFood()" placeholder="Cari makanan...">
       <div id="foodListContainer"></div>
       <input type="text" id="foodInput" placeholder="Masukkan makanan (contoh: 100 g apple)">
-      <button id="checkFood">Cek Makanan</button>
+      <button onclick="cekFood()">Cek Makanan</button>
       <div id="result"></div>
       <canvas id="nutritionChart"></canvas>
-
-      <div class="camera-section">
-        <button id="openCamera">Buka Kamera</button>
-        <video id="camera" autoplay playsinline class="hidden"></video>
-        <button id="takePhoto">Ambil Foto</button>
-        <img id="capturedImage" class="hidden">
-      </div>
+      <button onclick="openCamera()">Buka Kamera</button>
+      <video id="camera" class="hidden"></video>
+      <button onclick="takePhoto()">Ambil Foto</button>
+      <img id="capturedImage" class="hidden">
     </section>
 
     <section id="bmi" class="section hidden">
       <h2>Kalkulator BMI</h2>
       <input type="number" id="weight" placeholder="Berat (kg)">
       <input type="number" id="height" placeholder="Tinggi (cm)">
-      <button id="calculateBMI">Hitung BMI</button>
+      <button onclick="hitungBMI()">Hitung BMI</button>
       <div id="bmiResult"></div>
     </section>
 
-    <section id="history" class="section hidden">
+    <section id="riwayat" class="section hidden">
       <h2>Riwayat Penggunaan</h2>
       <div id="historyList"></div>
     </section>
 
     <div class="navbar">
-      <button data-section="account">Akun</button>
-      <button data-section="food">Makanan</button>
-      <button data-section="bmi">BMI</button>
-      <button data-section="history">Riwayat</button>
+      <button onclick="showSection('food')">Makanan</button>
+      <button onclick="showSection('bmi')">BMI</button>
+      <button onclick="showSection('riwayat')">Riwayat</button>
     </div>
   </div>
-
-  <script src="app.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
