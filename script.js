@@ -161,33 +161,54 @@ async function openCamera(){
     alert("Kamera tidak bisa diakses: "+e.message);
   }
 }
-function takePhoto() {
+async function takePhoto() {
     const video = document.getElementById("camera");
     const canvas = document.getElementById("photoCanvas");
     const img = document.getElementById("capturedImage");
+    const input = document.getElementById("foodInput");
 
-    if (!video || !canvas || !img) return;
+    if (!video || !canvas || !img || !input) return;
 
-    // Sesuaikan ukuran canvas dengan video
+    // Sesuaikan ukuran canvas
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
     const context = canvas.getContext("2d");
 
-    // Ambil frame dari video ke canvas
+    // Ambil frame video ke canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Ubah canvas menjadi gambar base64
+    // Tampilkan hasil di <img>
     const imageData = canvas.toDataURL("image/png");
-
-    // Tampilkan di <img>
     img.src = imageData;
     img.classList.remove("hidden");
     img.style.display = "block";
 
     console.log("Foto berhasil diambil:", imageData);
-}
 
+    // ================= OCR =================
+    // Tampilkan sementara teks "Memproses..." di input
+    input.value = "Memproses...";
+
+    try {
+        const { data: { text } } = await Tesseract.recognize(
+            imageData,
+            'eng', // bahasa Inggris, bisa 'ind' untuk bahasa Indonesia jika tersedia
+            { logger: m => console.log(m) }
+        );
+
+        // Bersihkan teks hasil OCR
+        const cleanedText = text.replace(/\n/g, ' ').trim();
+
+        // Masukkan ke input makanan
+        input.value = cleanedText;
+        console.log("Teks hasil OCR:", cleanedText);
+
+    } catch (err) {
+        console.error("OCR gagal:", err);
+        input.value = "";
+        alert("Gagal membaca teks dari foto.");
+    }
+}
 // ================= ACCOUNT =================
 function saveUser(){
   const username=document.getElementById("username");
@@ -251,5 +272,6 @@ window.onload=function(){
   foodList.sort((a,b)=>a.name.localeCompare(b.name));
   renderFoodList(foodList);
 }
+
 
 
