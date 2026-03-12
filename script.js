@@ -169,15 +169,15 @@ async function takePhoto() {
 
     if (!video || !canvas || !img || !input) return;
 
-    // Sesuaikan ukuran canvas
+    // Sesuaikan ukuran canvas dengan video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     const context = canvas.getContext("2d");
 
-    // Ambil frame video ke canvas
+    // Ambil frame dari video ke canvas
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Tampilkan hasil di <img>
+    // Tampilkan hasil foto di <img>
     const imageData = canvas.toDataURL("image/png");
     img.src = imageData;
     img.classList.remove("hidden");
@@ -186,20 +186,16 @@ async function takePhoto() {
     console.log("Foto berhasil diambil:", imageData);
 
     // ================= OCR =================
-    // Tampilkan sementara teks "Memproses..." di input
-    input.value = "Memproses...";
+    input.value = "Memproses..."; // sementara
 
     try {
         const { data: { text } } = await Tesseract.recognize(
             imageData,
-            'eng', // bahasa Inggris, bisa 'ind' untuk bahasa Indonesia jika tersedia
+            'eng', // bahasa Inggris, bisa 'ind' jika tersedia
             { logger: m => console.log(m) }
         );
 
-        // Bersihkan teks hasil OCR
         const cleanedText = text.replace(/\n/g, ' ').trim();
-
-        // Masukkan ke input makanan
         input.value = cleanedText;
         console.log("Teks hasil OCR:", cleanedText);
 
@@ -272,6 +268,7 @@ window.onload=function(){
   foodList.sort((a,b)=>a.name.localeCompare(b.name));
   renderFoodList(foodList);
 }
+
 
 
 
