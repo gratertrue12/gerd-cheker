@@ -1,96 +1,53 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GERD Checker</title>
-<link rel="stylesheet" href="style.css">
-
-<!-- Library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ml5/0.12.2/ml5.min.js" defer></script>
-<script src="script.js" defer></script>
-
-<!-- Script utama -->
-<script src="script.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GERD Checker</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="app">
 
-  <!-- TOP BAR -->
-  <header class="topbar">
-    <h1>GERD Checker</h1>
-    <p id="welcome">Halo</p>
-  </header>
+  <h1 id="welcome">Halo!</h1>
 
-  <!-- CEK MAKANAN -->
-  <section id="cek" class="section hidden">
-    <div class="card">
-      <h2>Cek Makanan</h2>
-      <video id="camera" autoplay playsinline class="hidden" style="width:300px;"></video>
-      <img id="capturedImage" class="hidden" style="width:200px;height:auto;margin-top:10px;">
-      <input id="foodInput" placeholder="Nama makanan atau hasil AI" style="margin-top:10px;width:90%;">
-      <div style="margin-top:10px;">
-        <button onclick="openCamera()">Buka Kamera</button>
-        <button onclick="takePhoto()">Ambil Foto</button>
-        <button onclick="cekFood()">Cek Nutrisi</button>
-      </div>
-      <div id="result" style="margin-top:10px;"></div>
-      <canvas id="nutritionChart" style="margin-top:10px;"></canvas>
-    </div>
-  </section>
-
-  <!-- DATABASE MAKANAN -->
-  <section id="makanan" class="section hidden">
-    <div class="card">
-      <h2>Database Makanan</h2>
-      <input id="searchFood" placeholder="Cari makanan" oninput="searchFood()">
-    </div>
-    <div id="foodListContainer"></div>
-  </section>
-
-  <!-- BMI -->
-  <section id="bmi" class="section hidden">
-    <div class="card">
-      <h2>Kalkulator BMI</h2>
-      <input id="weight" placeholder="Berat kg">
-      <input id="height" placeholder="Tinggi cm">
-      <button onclick="hitungBMI()">Hitung BMI</button>
-    </div>
-    <div id="bmiResult"></div>
-  </section>
-
-  <!-- RIWAYAT -->
-  <section id="riwayat" class="section hidden">
-    <h2>Riwayat</h2>
-    <div id="historyList"></div>
-  </section>
-
-  <!-- AKUN -->
-  <section id="akun" class="section hidden">
-    <div class="card">
-      <h2>Akun</h2>
-      <input id="username" placeholder="Nama pengguna">
-      <button onclick="saveUser()">Simpan</button>
-    </div>
-  </section>
-
-  <!-- NAVBAR -->
-  <nav class="navbar">
-    <button onclick="showSection('cek')">Cek</button>
-    <button onclick="showSection('makanan')">Makanan</button>
-    <button onclick="showSection('bmi')">BMI</button>
+  <!-- Menu -->
+  <nav>
+    <button onclick="showSection('checker')">Checker</button>
     <button onclick="showSection('riwayat')">Riwayat</button>
-    <button onclick="showSection('akun')">Akun</button>
   </nav>
 
-</div>
+  <!-- Sections -->
+  <div id="checker" class="section">
+    <input type="text" id="foodInput" placeholder="Masukkan makanan, contoh: 100 g apple">
+    <button onclick="cekFood()">Cek GERD</button>
+    <div id="result"></div>
+    <canvas id="nutritionChart"></canvas>
+    <video id="camera" class="hidden" width="320" height="240" autoplay></video>
+    <img id="capturedImage" class="hidden" alt="Captured Image">
+    <button onclick="openCamera()">Buka Kamera</button>
+    <button onclick="takePhoto()">Ambil Foto</button>
+  </div>
 
-<!-- Script utama -->
-<script src="script.js"></script>
+  <div id="riwayat" class="section hidden">
+    <div id="historyList"></div>
+  </div>
+
+  <!-- User Account -->
+  <div>
+    <input type="text" id="username" placeholder="Nama akun">
+    <button onclick="saveUser()">Simpan Akun</button>
+  </div>
+
+  <!-- BMI -->
+  <div>
+    <input type="number" id="weight" placeholder="Berat (kg)">
+    <input type="number" id="height" placeholder="Tinggi (cm)">
+    <button onclick="hitungBMI()">Hitung BMI</button>
+    <div id="bmiResult"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ml5/0.12.2/ml5.min.js"></script>
+  <script src="https://gratertrue12.github.io/gerd-cheker/script.js"></script>
 </body>
 </html>
-
-
-
-
-
