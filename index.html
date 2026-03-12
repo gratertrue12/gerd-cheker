@@ -17,19 +17,22 @@
   </header>
 
   <!-- CEK MAKANAN -->
-  <section id="cek" class="section">
-    <div class="card">
-      <h2>Cek Makanan</h2>
-      <input id="foodInput" placeholder="contoh: 100 g apple">
-      <button onclick="cekFood()">Cek Makanan</button>
-      <button onclick="openCamera()">Scan Kamera</button>
-      <button onclick="takePhoto()">Ambil Foto</button>
-      <video id="camera" class="hidden" autoplay></video>
-      <canvas id="photoCanvas" class="hidden"></canvas>
-    </div>
-    <div id="result"></div>
-    <canvas id="nutritionChart"></canvas>
-  </section>
+  <div class="card">
+  <h2>Cek Makanan</h2>
+  <input id="foodInput" placeholder="contoh: 100 g apple">
+  <button onclick="cekFood()">Cek Makanan</button>
+  <button onclick="openCamera()">Scan Kamera</button>
+  <button onclick="takePhoto()">Ambil Foto</button>
+  
+  <!-- video kamera -->
+  <video id="camera" class="hidden" autoplay></video>
+  
+  <!-- canvas untuk foto -->
+  <canvas id="photoCanvas" class="hidden"></canvas>
+  
+  <!-- img untuk menampilkan foto hasil ambil -->
+  <img id="capturedImage" class="hidden" style="width:100%; margin-top:10px; border-radius:8px;">
+</div>
 
   <!-- DATABASE MAKANAN -->
   <section id="makanan" class="section hidden">
@@ -80,3 +83,4 @@
 <script src="script.js"></script>
 </body>
 </html>
+
