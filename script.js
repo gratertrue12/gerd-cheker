@@ -2,6 +2,7 @@ const APP_ID="83a6c971";
 const APP_KEY="f57d9ecae7775582f830d07bfeecfbf4";
 
 let chart;
+let classifier; 
 let currentUser="";
 
 // ================= MENU =================
@@ -161,50 +162,44 @@ async function openCamera(){
     alert("Kamera tidak bisa diakses: "+e.message);
   }
 }
-async function takePhoto() {
-    const video = document.getElementById("camera");
-    const canvas = document.getElementById("photoCanvas");
-    const img = document.getElementById("capturedImage");
-    const input = document.getElementById("foodInput");
+function takePhoto() {
+  const video = document.getElementById("camera");
+  const img = document.getElementById("capturedImage");
+  const input = document.getElementById("foodInput");
+  if(!video || !img || !input || !classifier) return;
 
-    if (!video || !canvas || !img || !input) return;
+  // Ambil frame dari video ke <img>
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = canvas.toDataURL("image/png");
+  img.src = imageData;
+  img.classList.remove("hidden");
+  img.style.display = "block";
 
-    // Sesuaikan ukuran canvas dengan video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext("2d");
+  input.value = "Mendeteksi makanan...";
 
-    // Ambil frame dari video ke canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Tampilkan hasil foto di <img>
-    const imageData = canvas.toDataURL("image/png");
-    img.src = imageData;
-    img.classList.remove("hidden");
-    img.style.display = "block";
-
-    console.log("Foto berhasil diambil:", imageData);
-
-    // ================= OCR =================
-    input.value = "Memproses..."; // sementara
-
-    try {
-        const { data: { text } } = await Tesseract.recognize(
-            imageData,
-            'eng', // bahasa Inggris, bisa 'ind' jika tersedia
-            { logger: m => console.log(m) }
-        );
-
-        const cleanedText = text.replace(/\n/g, ' ').trim();
-        input.value = cleanedText;
-        console.log("Teks hasil OCR:", cleanedText);
-
-    } catch (err) {
-        console.error("OCR gagal:", err);
-        input.value = "";
-        alert("Gagal membaca teks dari foto.");
+  // Klasifikasi gambar dengan MobileNet
+  classifier.classify(img, (err, results) => {
+    if(err){
+      console.error(err);
+      input.value = "";
+      alert("Gagal mengenali makanan");
+      return;
     }
+
+    const topLabel = results[0].label.toLowerCase();
+
+    // Cocokkan label AI dengan daftar foodList
+    const matchedFood = foodList.find(f => topLabel.includes(f.name.toLowerCase()));
+
+    if(matchedFood) input.value = matchedFood.normal;
+    else input.value = topLabel; // jika tidak match, tampilkan label AI
+  });
 }
+
+   
 // ================= ACCOUNT =================
 function saveUser(){
   const username=document.getElementById("username");
@@ -261,14 +256,20 @@ function hitungBMI(){
 }
 
 // ================= INIT =================
-window.onload=function(){
-  currentUser=localStorage.getItem("user")||"";
-  const welcome=document.getElementById("welcome");
-  if(currentUser && welcome){ welcome.innerText="Halo kembali "+currentUser; }
+window.onload = async function() {
+  currentUser = localStorage.getItem("user") || "";
+  const welcome = document.getElementById("welcome");
+  if(currentUser && welcome){
+    welcome.innerText = "Halo kembali " + currentUser;
+  }
+
   foodList.sort((a,b)=>a.name.localeCompare(b.name));
   renderFoodList(foodList);
-}
 
-
+  // ================= LOAD MODEL AI =================
+  classifier = await ml5.imageClassifier('MobileNet', () => {
+    console.log("Model MobileNet siap!");
+  });
+};
 
 
