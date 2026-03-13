@@ -6,6 +6,7 @@
   <title>NutriCheck · Loading + OFF relevan</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
+    /* (style sama seperti sebelumnya, tidak diubah) */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     body { background: #e8f0fe; display: flex; justify-content: center; padding: 12px; }
     .app { width: 420px; max-width: 100%; background: white; border-radius: 32px 32px 0 0; box-shadow: 0 20px 40px rgba(0,20,30,0.15); overflow: hidden; }
@@ -203,18 +204,25 @@
       }
     }
 
-    // ========== EDAMAM ==========
+    // ========== EDAMAM dengan perbaikan error handling ==========
     async function searchEdamam(query) {
       const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${APP_ID}&app_key=${APP_KEY}&ingr=${encodeURIComponent(query)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // timeout 8 detik
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // timeout 8 detik
         const res = await fetch(url, {
           headers: { 'User-Agent': 'NutriCheck/1.0' },
           signal: controller.signal
         });
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
+        clearTimeout(timeoutId); // bersihkan timeout jika sukses
+        if (!res.ok) {
+          if (res.status === 401) {
+            console.error('Edamam Unauthorized: Periksa API key');
+            // Bisa lempar error khusus
+            throw new Error('API Key Edamam tidak valid atau kuota habis');
+          }
+          return null;
+        }
         const data = await res.json();
         if (data.hints && data.hints.length > 0) {
           const food = data.hints[0].food;
@@ -236,7 +244,17 @@
           };
         }
       } catch (e) {
+        clearTimeout(timeoutId); // pastikan timeout dibersihkan walau error
+        if (e.name === 'AbortError') {
+          console.warn('Edamam request timeout');
+          // Timeout, anggap gagal
+          return null;
+        }
         console.warn('Edamam error', e);
+        // Jika error karena 401, kita ingin menyebarkannya agar bisa ditangani di level atas
+        if (e.message.includes('API Key Edamam tidak valid')) {
+          throw e; // lempar ke atas
+        }
       }
       return null;
     }
@@ -244,9 +262,9 @@
     // ========== OPEN FOOD FACTS dengan skor relevansi ==========
     async function searchOpenFoodFacts(query) {
       const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
         const res = await fetch(url, {
           headers: { 'User-Agent': 'NutriCheck/1.0' },
           signal: controller.signal
@@ -283,6 +301,11 @@
         console.log('Produk OFF terpilih:', scored[0].product.product_name, 'skor:', scored[0].score);
         return scored[0].product;
       } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+          console.warn('OFF request timeout');
+          return null;
+        }
         console.warn('OFF error', e);
         return null;
       }
@@ -291,7 +314,13 @@
     // Fungsi pencarian utama (tanpa auto)
     async function searchFood(query, source) {
       if (source === 'edamam') {
-        return await searchEdamam(query);
+        // searchEdamam bisa throw error 401, tangkap di sini
+        try {
+          return await searchEdamam(query);
+        } catch (e) {
+          // Jika error karena API key, kita lempar lagi agar ditampilkan ke user
+          throw e;
+        }
       } else { // off
         return await searchOpenFoodFacts(query);
       }
@@ -531,7 +560,18 @@
       cekBtn.disabled = true;
 
       try {
-        let product = await searchFood(foodName, source);
+        let product = null;
+        try {
+          product = await searchFood(foodName, source);
+        } catch (e) {
+          // Tangkap error dari searchFood (misal 401)
+          errorDiv.classList.remove("hidden");
+          errorDiv.innerHTML = `❌ ${e.message}`;
+          loading.classList.add("hidden");
+          cekBtn.disabled = false;
+          return;
+        }
+
         if (!product) {
           // Fallback lokal
           const lowerQuery = foodName.toLowerCase();
