@@ -3,17 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NutriCheck · Loading + OFF relevan</title>
+  <title>NutriCheck Pro</title>
+  <!-- Favicon inline (base64) agar tidak 404 -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥗</text></svg>">
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
-    /* ... (style tetap sama) ... */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
     body { background: #e8f0fe; display: flex; justify-content: center; padding: 12px; }
-    .app { width: 420px; max-width: 100%; background: white; border-radius: 32px 32px 0 0; box-shadow: 0 20px 40px rgba(0,20,30,0.15); overflow: hidden; }
-    .topbar { background: #1e3a5f; color: white; padding: 24px 20px; }
+    .app { width: 420px; max-width: 100%; background: white; border-radius: 32px 32px 0 0; box-shadow: 0 20px 40px rgba(0,20,30,0.15); overflow: hidden; display: flex; flex-direction: column; }
+    .topbar { background: linear-gradient(90deg,#1e3a5f,#143048); color: white; padding: 24px 20px; }
     .topbar h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.3px; }
     .topbar p { font-size: 15px; opacity: 0.85; margin-top: 4px; }
-    .section { padding: 20px; background: #f9fcff; }
+    .section { padding: 20px; background: #f9fcff; flex: 1; overflow-y: auto; }
     .hidden { display: none !important; }
     .card { background: white; padding: 18px; border-radius: 24px; box-shadow: 0 6px 16px rgba(0,0,0,0.03); margin-bottom: 18px; border: 1px solid #dee9f2; }
     h2 { font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #0a2540; }
@@ -56,6 +58,11 @@
     .akg-table td { padding: 6px; border-bottom: 1px solid #dee9f2; }
     .akg-table .value-bar { background: #1e3a5f; height: 8px; border-radius: 4px; }
     .red-line { background: #c53929; height: 2px; width: 100%; margin-top: 2px; }
+
+    /* Kamera */
+    video, #capturedImage { width: 100%; margin-top: 10px; border-radius: 16px; object-fit: cover; }
+    #camera.hidden { display: none; }
+    #takePhotoBtn { margin-top: 5px; }
   </style>
 </head>
 <body>
@@ -69,7 +76,6 @@
     <h2>👤 Akun</h2>
     <input type="text" id="username" placeholder="Nama (opsional)" value="" />
     <button id="saveUserBtn">Simpan Nama</button>
-    
     <div class="tip-panel">
       <h3>📋 Panduan Membaca Label Gizi</h3>
       <ul>
@@ -86,14 +92,14 @@
     <h2>🔍 Cek Makanan</h2>
     <input type="text" id="searchFood" placeholder="Cari makanan cepat..." />
     <div id="foodListContainer"></div>
-    
+
     <input type="text" id="foodInput" placeholder="Contoh: 100g burger atau 200g nasi" value="100g telur" />
     <p style="font-size:12px; color:#666;">Tulis dengan berat, misal "100g telur"</p>
-    
-    <!-- Pilihan sumber data (tanpa auto) -->
+
+    <!-- Pilihan sumber data -->
     <div class="data-source-select">
       <select id="dataSource">
-        <option value="edamam">🌱 Edamam (makanan umum)</option>
+        <option value="edamam">🌱 Edamam (nutrition analysis)</option>
         <option value="off" selected>🏷️ Open Food Facts (produk bermerek)</option>
       </select>
     </div>
@@ -110,6 +116,13 @@
     <div id="loadingIndicator" class="hidden"><div class="spinner"></div><p>Mencari data...</p></div>
     <div id="result"></div>
     <div id="errorMessage" class="error-box hidden"></div>
+
+    <!-- Kamera -->
+    <button id="openCameraBtn">📸 Buka Kamera</button>
+    <video id="camera" class="hidden" autoplay playsinline></video>
+    <button id="takePhotoBtn" class="hidden">Ambil Foto & Deteksi</button>
+    <img id="capturedImage" class="hidden" />
+
     <div class="chart-wrapper">
       <div class="chart-container"><canvas id="radarChart"></canvas></div>
       <div class="chart-container"><canvas id="barChart"></canvas></div>
@@ -127,490 +140,487 @@
     <button data-section="food">🔍 Cek</button>
     <button data-section="riwayat">📜 Riwayat</button>
   </div>
-  <div class="footer-note">Data: Edamam · Open Food Facts · lokal</div>
+  <div class="footer-note">Data: Edamam · Open Food Facts · LogMeal</div>
 </div>
 
 <script>
-  (function() {
-    // ========== KUNCI API BARU ==========
-    const APP_ID = "d9df5eb6";
-    const APP_KEY = "8e0e7b2edb4dfe7934bb076d8424ed0";
+(function() {
+  // ========== KONFIGURASI API ==========
+  const APP_ID = "d9df5eb6";
+  const APP_KEY = "8e0e7b2edb4dfe7934bb076d8424ed0";
+  const LOGMEAL_TOKEN = "937a44034a0fac902bd07ab4bceae7a13a233497"; // ganti dengan token Anda
 
-    let currentUser = localStorage.getItem("user") || "";
-    let radarChart, barChart;
+  let currentUser = localStorage.getItem("user") || "";
+  let radarChart, barChart;
+  let cameraStream = null;
 
-    // Database fallback minimal
-    const FALLBACK = {
-      burger: { calories: 295, fat: 17, saturated_fat: 7, carbohydrates: 24, sugar: 6, fiber: 1, protein: 17, sodium: 500, cholesterol: 50 },
-      pizza: { calories: 266, fat: 10, saturated_fat: 4, carbohydrates: 33, sugar: 4, fiber: 2, protein: 11, sodium: 600, cholesterol: 20 },
-      fries: { calories: 312, fat: 15, saturated_fat: 2.3, carbohydrates: 41, sugar: 0.3, fiber: 3.8, protein: 3.4, sodium: 210, cholesterol: 0 },
-      apple: { calories: 52, fat: 0.2, saturated_fat: 0, carbohydrates: 14, sugar: 10, fiber: 2.4, protein: 0.3, sodium: 1, cholesterol: 0 },
-      banana: { calories: 89, fat: 0.3, saturated_fat: 0.1, carbohydrates: 23, sugar: 12, fiber: 2.6, protein: 1.1, sodium: 1, cholesterol: 0 },
-      egg: { calories: 155, fat: 11, saturated_fat: 3.3, carbohydrates: 1.1, sugar: 1.1, fiber: 0, protein: 13, sodium: 124, cholesterol: 373 },
-      rice: { calories: 130, fat: 0.3, saturated_fat: 0.1, carbohydrates: 28, sugar: 0.1, fiber: 0.4, protein: 2.7, sodium: 1, cholesterol: 0 },
-      chicken: { calories: 239, fat: 14, saturated_fat: 3.8, carbohydrates: 0, sugar: 0, fiber: 0, protein: 27, sodium: 77, cholesterol: 88 },
-      milk: { calories: 61, fat: 3.3, saturated_fat: 1.9, carbohydrates: 4.8, sugar: 5, fiber: 0, protein: 3.2, sodium: 40, cholesterol: 10 }
-    };
+  // Database fallback lokal
+  const FALLBACK = {
+    burger: { calories: 295, fat: 17, saturated_fat: 7, carbohydrates: 24, sugar: 6, fiber: 1, protein: 17, sodium: 500, cholesterol: 50 },
+    pizza: { calories: 266, fat: 10, saturated_fat: 4, carbohydrates: 33, sugar: 4, fiber: 2, protein: 11, sodium: 600, cholesterol: 20 },
+    fries: { calories: 312, fat: 15, saturated_fat: 2.3, carbohydrates: 41, sugar: 0.3, fiber: 3.8, protein: 3.4, sodium: 210, cholesterol: 0 },
+    apple: { calories: 52, fat: 0.2, saturated_fat: 0, carbohydrates: 14, sugar: 10, fiber: 2.4, protein: 0.3, sodium: 1, cholesterol: 0 },
+    banana: { calories: 89, fat: 0.3, saturated_fat: 0.1, carbohydrates: 23, sugar: 12, fiber: 2.6, protein: 1.1, sodium: 1, cholesterol: 0 },
+    egg: { calories: 155, fat: 11, saturated_fat: 3.3, carbohydrates: 1.1, sugar: 1.1, fiber: 0, protein: 13, sodium: 124, cholesterol: 373 },
+    rice: { calories: 130, fat: 0.3, saturated_fat: 0.1, carbohydrates: 28, sugar: 0.1, fiber: 0.4, protein: 2.7, sodium: 1, cholesterol: 0 },
+    chicken: { calories: 239, fat: 14, saturated_fat: 3.8, carbohydrates: 0, sugar: 0, fiber: 0, protein: 27, sodium: 77, cholesterol: 88 },
+    milk: { calories: 61, fat: 3.3, saturated_fat: 1.9, carbohydrates: 4.8, sugar: 5, fiber: 0, protein: 3.2, sodium: 40, cholesterol: 10 }
+  };
+  const foodSuggestions = Object.keys(FALLBACK);
 
-    const foodSuggestions = Object.keys(FALLBACK);
+  // ========== ELEMEN DOM ==========
+  const usernameInput = document.getElementById('username');
+  const welcomeEl = document.getElementById('welcome');
+  const searchFoodInput = document.getElementById('searchFood');
+  const foodListContainer = document.getElementById('foodListContainer');
+  const foodInput = document.getElementById('foodInput');
+  const dataSourceSelect = document.getElementById('dataSource');
+  const ageGroupSelect = document.getElementById('ageGroup');
+  const cekFoodBtn = document.getElementById('cekFoodBtn');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  const resultDiv = document.getElementById('result');
+  const errorDiv = document.getElementById('errorMessage');
+  const openCameraBtn = document.getElementById('openCameraBtn');
+  const takePhotoBtn = document.getElementById('takePhotoBtn');
+  const cameraVideo = document.getElementById('camera');
+  const capturedImage = document.getElementById('capturedImage');
 
-    document.getElementById("username").value = currentUser;
+  // Set username dari localStorage
+  usernameInput.value = currentUser;
+  if (currentUser) welcomeEl.innerText = "Halo kembali, " + currentUser + " 👋";
 
-    function showSection(id) {
-      document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
-      document.getElementById(id)?.classList.remove("hidden");
-      if (id === "riwayat") loadHistory();
-      if (id === "food") renderSuggestions();
+  // ========== NAVIGASI ==========
+  document.querySelectorAll('.navbar button').forEach(btn => {
+    btn.addEventListener('click', () => showSection(btn.dataset.section));
+  });
+
+  function showSection(id) {
+    document.querySelectorAll('.section').forEach(sec => sec.classList.add('hidden'));
+    const target = document.getElementById(id);
+    if (target) target.classList.remove('hidden');
+    if (id === 'riwayat') loadHistory();
+    if (id === 'food') renderSuggestions();
+  }
+
+  // ========== AKUN ==========
+  document.getElementById('saveUserBtn').addEventListener('click', () => {
+    const name = usernameInput.value.trim();
+    currentUser = name;
+    if (name) {
+      localStorage.setItem('user', name);
+      welcomeEl.innerText = "Halo, " + name + " 👋";
+    } else {
+      localStorage.removeItem('user');
+      welcomeEl.innerText = "Halo, selamat datang!";
     }
+  });
 
-    document.querySelectorAll(".navbar button").forEach(btn => {
-      btn.addEventListener("click", () => showSection(btn.dataset.section));
+  // ========== SUGGESTIONS ==========
+  function renderSuggestions(filter = '') {
+    foodListContainer.innerHTML = '';
+    const list = foodSuggestions.filter(f => f.toLowerCase().includes(filter.toLowerCase()));
+    list.forEach(f => {
+      const div = document.createElement('div');
+      div.className = 'food-card';
+      div.innerText = f.charAt(0).toUpperCase() + f.slice(1);
+      div.onclick = () => foodInput.value = '100g ' + f;
+      foodListContainer.appendChild(div);
     });
+  }
+  renderSuggestions();
+  searchFoodInput.addEventListener('input', (e) => renderSuggestions(e.target.value));
 
-    document.getElementById("saveUserBtn").addEventListener("click", () => {
-      const name = document.getElementById("username").value.trim();
-      currentUser = name;
-      if (currentUser) {
-        localStorage.setItem("user", currentUser);
-        document.getElementById("welcome").innerText = "Halo, " + currentUser + " 👋";
-      } else {
-        localStorage.removeItem("user");
-        document.getElementById("welcome").innerText = "Halo, selamat datang!";
-      }
-    });
+  // ========== PARSE INPUT ==========
+  function parseInput(input) {
+    input = input.trim();
+    const match = input.match(/^(\d+)\s*(?:g|gram)?\s+(.+)$/i);
+    if (match) return { weight: parseFloat(match[1]), foodName: match[2].trim() };
+    else return { weight: 100, foodName: input };
+  }
 
-    function renderSuggestions(filter = "") {
-      const container = document.getElementById("foodListContainer");
-      container.innerHTML = "";
-      const list = foodSuggestions.filter(f => f.toLowerCase().includes(filter.toLowerCase()));
-      list.forEach(f => {
-        const div = document.createElement("div");
-        div.className = "food-card";
-        div.innerText = f.charAt(0).toUpperCase() + f.slice(1);
-        div.onclick = () => document.getElementById("foodInput").value = "100g " + f;
-        container.appendChild(div);
-      });
-    }
-    document.getElementById("searchFood").addEventListener("input", (e) => renderSuggestions(e.target.value));
-    renderSuggestions();
-
-    function parseInput(input) {
-      input = input.trim();
-      const match = input.match(/^(\d+)\s*(?:g|gram)?\s+(.+)$/i);
-      if (match) {
-        return { weight: parseFloat(match[1]), foodName: match[2].trim() };
-      } else {
-        return { weight: 100, foodName: input };
-      }
-    }
-
-    // ========== EDAMAM ==========
-    async function searchEdamam(query) {
-      const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${APP_ID}&app_key=${APP_KEY}&ingr=${encodeURIComponent(query)}`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // timeout 8 detik
-        const res = await fetch(url, {
-          headers: { 'User-Agent': 'NutriCheck/1.0' },
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (data.hints && data.hints.length > 0) {
-          const food = data.hints[0].food;
-          if (!food || !food.nutrients) return null;
-          const nutrients = food.nutrients;
-          return {
-            product_name: food.label || query,
-            nutriments: {
-              calories: nutrients.ENERC_KCAL || 0,
-              fat: nutrients.FAT || 0,
-              saturated_fat: 0,
-              carbohydrates: nutrients.CHOCDF || 0,
-              sugar: nutrients.SUGAR || 0,
-              fiber: nutrients.FIBTG || 0,
-              protein: nutrients.PROCNT || 0,
-              sodium: nutrients.NA ? (nutrients.NA < 10 ? nutrients.NA * 1000 : nutrients.NA) : 0,
-              cholesterol: 0
-            }
-          };
-        }
-      } catch (e) {
-        console.warn('Edamam error', e);
-      }
-      return null;
-    }
-
-    // ========== OPEN FOOD FACTS dengan skor relevansi ==========
-    async function searchOpenFoodFacts(query) {
-      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-        const res = await fetch(url, {
-          headers: { 'User-Agent': 'NutriCheck/1.0' },
-          signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
-        const data = await res.json();
-        if (!data.products || data.products.length === 0) return null;
-
-        const productsWithNutrients = data.products.filter(p => p.nutriments && Object.keys(p.nutriments).length > 0);
-        if (productsWithNutrients.length === 0) return null;
-
-        // Field nutrisi penting untuk kelengkapan
-        const nutrientFields = ['energy_100g', 'fat_100g', 'proteins_100g', 'carbohydrates_100g', 'fiber_100g', 'sodium_100g'];
-        const completenessScore = (nutriments) => {
-          let score = 0;
-          nutrientFields.forEach(field => {
-            if (nutriments[field] !== undefined) score++;
-          });
-          return score;
-        };
-
-        const queryLower = query.toLowerCase();
-        const scored = productsWithNutrients.map(p => {
-          const productName = (p.product_name || '').toLowerCase();
-          let relevance = 0;
-          if (productName.includes(queryLower)) relevance += 10;
-          else if (queryLower.includes(productName)) relevance += 5;
-          const completeness = completenessScore(p.nutriments);
-          return { product: p, score: relevance + completeness };
-        });
-
-        scored.sort((a, b) => b.score - a.score);
-        console.log('Produk OFF terpilih:', scored[0].product.product_name, 'skor:', scored[0].score);
-        return scored[0].product;
-      } catch (e) {
-        console.warn('OFF error', e);
+  // ========== EDAMAM (NUTRITION ANALYSIS API) ==========
+  async function searchEdamam(query) {
+    const url = `https://api.edamam.com/api/nutrition-data?app_id=${APP_ID}&app_key=${APP_KEY}&ingr=${encodeURIComponent(query)}`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn('Edamam error', res.status);
         return null;
       }
-    }
-
-    // Fungsi pencarian utama (tanpa auto)
-    async function searchFood(query, source) {
-      if (source === 'edamam') {
-        return await searchEdamam(query);
-      } else { // off
-        return await searchOpenFoodFacts(query);
-      }
-    }
-
-    function extractNutriments(product) {
-      const n = product.nutriments || {};
+      const data = await res.json();
+      if (!data.totalNutrients) return null;
+      const n = data.totalNutrients;
       return {
-        calories: n.calories || n.energy_value || n.energy_100g || n.energy || 0,
-        fat: n.fat || n.fat_value || n.fat_100g || 0,
-        saturated_fat: n.saturated_fat || n.saturated_fat_value || n.saturated_fat_100g || 0,
-        carbohydrates: n.carbohydrates || n.carbohydrates_value || n.carbohydrates_100g || 0,
-        sugar: n.sugar || n.sugars_value || n.sugars_100g || n.sugars || 0,
-        fiber: n.fiber || n.fiber_value || n.fiber_100g || 0,
-        protein: n.protein || n.proteins_value || n.proteins_100g || n.proteins || 0,
-        sodium: n.sodium || n.sodium_value || n.sodium_100g || 0,
-        cholesterol: n.cholesterol || n.cholesterol_value || n.cholesterol_100g || 0
+        product_name: query,
+        nutriments: {
+          calories: n.ENERC_KCAL?.quantity || 0,
+          fat: n.FAT?.quantity || 0,
+          saturated_fat: n.FASAT?.quantity || 0,
+          carbohydrates: n.CHOCDF?.quantity || 0,
+          sugar: n.SUGAR?.quantity || 0,
+          fiber: n.FIBTG?.quantity || 0,
+          protein: n.PROCNT?.quantity || 0,
+          sodium: n.NA?.quantity || 0,
+          cholesterol: n.CHOLE?.quantity || 0
+        }
       };
+    } catch (e) {
+      console.warn('Edamam exception', e);
+      return null;
     }
+  }
 
-    // Nilai AKG standar dewasa (untuk tabel perbandingan)
-    const STD_LIMITS = {
-      cal: 2000,
-      fat: 65,
-      satFat: 20,
-      carbs: 300,
-      sugar: 50,
-      fiber: 25,
-      protein: 60,
-      sodium: 2400,
-      cholesterol: 300
+  // ========== OPEN FOOD FACTS ==========
+  async function searchOpenFoodFacts(query) {
+    const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`;
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(url, { headers: { 'User-Agent': 'NutriCheck/1.0' }, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.products || data.products.length === 0) return null;
+
+      const productsWithNutrients = data.products.filter(p => p.nutriments && Object.keys(p.nutriments).length > 0);
+      if (productsWithNutrients.length === 0) return null;
+
+      const nutrientFields = ['energy_100g', 'fat_100g', 'proteins_100g', 'carbohydrates_100g', 'fiber_100g', 'sodium_100g'];
+      const completenessScore = (nutriments) => nutrientFields.reduce((acc, field) => acc + (nutriments[field] !== undefined ? 1 : 0), 0);
+
+      const queryLower = query.toLowerCase();
+      const scored = productsWithNutrients.map(p => {
+        const productName = (p.product_name || '').toLowerCase();
+        let relevance = productName.includes(queryLower) ? 10 : (queryLower.includes(productName) ? 5 : 0);
+        const completeness = completenessScore(p.nutriments);
+        return { product: p, score: relevance + completeness };
+      });
+      scored.sort((a, b) => b.score - a.score);
+      console.log('OFF terpilih:', scored[0].product.product_name, 'skor:', scored[0].score);
+      return scored[0].product;
+    } catch (e) {
+      console.warn('OFF error', e);
+      return null;
+    }
+  }
+
+  // ========== SEARCH FOOD ==========
+  async function searchFood(query, source) {
+    if (source === 'edamam') return await searchEdamam(query);
+    else return await searchOpenFoodFacts(query);
+  }
+
+  // ========== EXTRACT NUTRIENTS (untuk OFF dan FALLBACK) ==========
+  function extractNutriments(product) {
+    const n = product.nutriments || {};
+    return {
+      calories: n.calories || n.energy_value || n.energy_100g || n.energy || 0,
+      fat: n.fat || n.fat_value || n.fat_100g || 0,
+      saturated_fat: n.saturated_fat || n.saturated_fat_value || n.saturated_fat_100g || 0,
+      carbohydrates: n.carbohydrates || n.carbohydrates_value || n.carbohydrates_100g || 0,
+      sugar: n.sugar || n.sugars_value || n.sugars_100g || n.sugars || 0,
+      fiber: n.fiber || n.fiber_value || n.fiber_100g || 0,
+      protein: n.protein || n.proteins_value || n.proteins_100g || n.proteins || 0,
+      sodium: n.sodium || n.sodium_value || n.sodium_100g || 0,
+      cholesterol: n.cholesterol || n.cholesterol_value || n.cholesterol_100g || 0
+    };
+  }
+
+  // ========== AKG STANDAR ==========
+  const STD_LIMITS = { cal:2000, fat:65, satFat:20, carbs:300, sugar:50, fiber:25, protein:60, sodium:2400, cholesterol:300 };
+
+  function getDailyLimits(ageGroup) {
+    if (ageGroup === 'child') return { cal:1500, fat:50, satFat:15, carbs:225, sugar:40, fiber:20, protein:45, sodium:1500, cholesterol:250 };
+    if (ageGroup === 'senior') return { cal:1800, fat:60, satFat:18, carbs:270, sugar:45, fiber:25, protein:55, sodium:1500, cholesterol:250 };
+    return { cal:2000, fat:65, satFat:20, carbs:300, sugar:50, fiber:25, protein:60, sodium:2000, cholesterol:300 };
+  }
+
+  function calculateScores(nutriPer100g, weight, ageGroup) {
+    const factor = weight / 100;
+    const n = {
+      cal: nutriPer100g.calories * factor,
+      fat: nutriPer100g.fat * factor,
+      satFat: nutriPer100g.saturated_fat * factor,
+      carbs: nutriPer100g.carbohydrates * factor,
+      sugar: nutriPer100g.sugar * factor,
+      fiber: nutriPer100g.fiber * factor,
+      protein: nutriPer100g.protein * factor,
+      sodium: nutriPer100g.sodium * factor,
+      cholesterol: nutriPer100g.cholesterol * factor
     };
 
-    function getDailyLimits(ageGroup) {
-      if (ageGroup === 'child') {
-        return { cal:1500, fat:50, satFat:15, carbs:225, sugar:40, fiber:20, protein:45, sodium:1500, cholesterol:250 };
-      } else if (ageGroup === 'senior') {
-        return { cal:1800, fat:60, satFat:18, carbs:270, sugar:45, fiber:25, protein:55, sodium:1500, cholesterol:250 };
-      } else {
-        return { cal:2000, fat:65, satFat:20, carbs:300, sugar:50, fiber:25, protein:60, sodium:2000, cholesterol:300 };
-      }
-    }
+    const pct_std = {
+      cal: (n.cal / STD_LIMITS.cal) * 100,
+      fat: (n.fat / STD_LIMITS.fat) * 100,
+      satFat: (n.satFat / STD_LIMITS.satFat) * 100,
+      carbs: (n.carbs / STD_LIMITS.carbs) * 100,
+      sugar: (n.sugar / STD_LIMITS.sugar) * 100,
+      fiber: (n.fiber / STD_LIMITS.fiber) * 100,
+      protein: (n.protein / STD_LIMITS.protein) * 100,
+      sodium: (n.sodium / STD_LIMITS.sodium) * 100
+    };
 
-    function calculateScores(nutriPer100g, weight, ageGroup) {
-      const factor = weight / 100;
-      const n = {
-        cal: nutriPer100g.calories * factor,
-        fat: nutriPer100g.fat * factor,
-        satFat: nutriPer100g.saturated_fat * factor,
-        carbs: nutriPer100g.carbohydrates * factor,
-        sugar: nutriPer100g.sugar * factor,
-        fiber: nutriPer100g.fiber * factor,
-        protein: nutriPer100g.protein * factor,
-        sodium: nutriPer100g.sodium * factor,
-        cholesterol: nutriPer100g.cholesterol * factor
-      };
+    // Skor Jantung
+    let heartScore = 100;
+    if (pct_std.satFat > 5) heartScore -= (pct_std.satFat - 5) * 1.5;
+    if (pct_std.sodium > 5) heartScore -= (pct_std.sodium - 5) * 1.2;
+    if (pct_std.satFat <= 5) heartScore += 5;
+    if (pct_std.sodium <= 5) heartScore += 5;
+    heartScore = Math.min(100, Math.max(0, Math.round(heartScore)));
 
-      // Persentase terhadap AKG standar (untuk tabel & skor)
-      const pct_std = {
-        cal: (n.cal / STD_LIMITS.cal) * 100,
-        fat: (n.fat / STD_LIMITS.fat) * 100,
-        satFat: (n.satFat / STD_LIMITS.satFat) * 100,
-        carbs: (n.carbs / STD_LIMITS.carbs) * 100,
-        sugar: (n.sugar / STD_LIMITS.sugar) * 100,
-        fiber: (n.fiber / STD_LIMITS.fiber) * 100,
-        protein: (n.protein / STD_LIMITS.protein) * 100,
-        sodium: (n.sodium / STD_LIMITS.sodium) * 100
-      };
+    // Skor Pencernaan
+    let digestionScore = 100;
+    if (pct_std.fiber < 20) digestionScore -= (20 - pct_std.fiber) * 2;
+    else digestionScore += 10;
+    if (pct_std.sugar > 20) digestionScore -= (pct_std.sugar - 20) * 1.5;
+    else if (pct_std.sugar <= 5) digestionScore += 5;
+    digestionScore = Math.min(100, Math.max(0, Math.round(digestionScore)));
 
-      // Skor Jantung (lemak jenuh & sodium)
-      let heartScore = 100;
-      if (pct_std.satFat > 5) heartScore -= (pct_std.satFat - 5) * 1.5;
-      if (pct_std.sodium > 5) heartScore -= (pct_std.sodium - 5) * 1.2;
-      if (pct_std.satFat <= 5) heartScore += 5;
-      if (pct_std.sodium <= 5) heartScore += 5;
-      heartScore = Math.min(100, Math.max(0, Math.round(heartScore)));
+    // Skor GERD
+    let gerdPenalty = 0;
+    if (pct_std.fat > 20) gerdPenalty += (pct_std.fat - 20) * 1.5;
+    if (pct_std.satFat > 15) gerdPenalty += (pct_std.satFat - 15) * 2;
+    if (pct_std.cal > 25) gerdPenalty += (pct_std.cal - 25) * 1;
+    let gerdBonus = 0;
+    if (pct_std.fiber > 10) gerdBonus = Math.min(10, (pct_std.fiber - 10) * 0.5);
+    let gerdScore = 100 - gerdPenalty + gerdBonus;
+    gerdScore = Math.min(100, Math.max(0, Math.round(gerdScore)));
 
-      // Skor Pencernaan (serat & gula)
-      let digestionScore = 100;
-      if (pct_std.fiber < 20) digestionScore -= (20 - pct_std.fiber) * 2;
-      else digestionScore += 10;
-      if (pct_std.sugar > 20) digestionScore -= (pct_std.sugar - 20) * 1.5;
-      else if (pct_std.sugar <= 5) digestionScore += 5;
-      digestionScore = Math.min(100, Math.max(0, Math.round(digestionScore)));
+    // Rekomendasi usia
+    const limits = getDailyLimits(ageGroup);
+    const ageCalPct = (n.cal / limits.cal) * 100;
+    let ageRec = n.cal > limits.cal * 0.3
+      ? `⚠️ Porsi ini ${n.cal.toFixed(0)} kkal (${ageCalPct.toFixed(0)}% AKG usia). Perhatikan total harian.`
+      : `✅ Porsi sesuai (${n.cal.toFixed(0)} kkal, ${ageCalPct.toFixed(0)}% AKG usia).`;
 
-      // Skor GERD (sederhana)
-      let gerdPenalty = 0;
-      if (pct_std.fat > 20) gerdPenalty += (pct_std.fat - 20) * 1.5;
-      if (pct_std.satFat > 15) gerdPenalty += (pct_std.satFat - 15) * 2;
-      if (pct_std.cal > 25) gerdPenalty += (pct_std.cal - 25) * 1;
-      let gerdBonus = 0;
-      if (pct_std.fiber > 10) gerdBonus = Math.min(10, (pct_std.fiber - 10) * 0.5);
-      let gerdScore = 100 - gerdPenalty + gerdBonus;
-      gerdScore = Math.min(100, Math.max(0, Math.round(gerdScore)));
+    return { gerd: gerdScore, heart: heartScore, digestion: digestionScore, ageRec, nutrients: n, pct_std };
+  }
 
-      // Rekomendasi usia
-      const limits = getDailyLimits(ageGroup);
-      const ageCalPct = (n.cal / limits.cal) * 100;
-      let ageRec = '';
-      if (n.cal > limits.cal * 0.3) {
-        ageRec = `⚠️ Porsi ini ${n.cal.toFixed(0)} kkal (${ageCalPct.toFixed(0)}% AKG usia). Perhatikan total harian.`;
-      } else {
-        ageRec = `✅ Porsi sesuai (${n.cal.toFixed(0)} kkal, ${ageCalPct.toFixed(0)}% AKG usia).`;
-      }
+  // ========== DISPLAY RESULT ==========
+  function displayResult(scores, productName, weight, ageGroup) {
+    const n = scores.nutrients, pct = scores.pct_std;
+    const gerdClass = scores.gerd >= 70 ? "good" : scores.gerd >= 40 ? "warning" : "bad";
+    const heartClass = scores.heart >= 70 ? "good" : scores.heart >= 40 ? "warning" : "bad";
+    const digeClass = scores.digestion >= 70 ? "good" : scores.digestion >= 40 ? "warning" : "bad";
 
-      return {
-        gerd: gerdScore,
-        heart: heartScore,
-        digestion: digestionScore,
-        ageRec,
-        nutrients: n,
-        pct_std: pct_std
-      };
-    }
+    const akgRows = [
+      { label: 'Kalori', value: pct.cal },
+      { label: 'Lemak', value: pct.fat },
+      { label: 'Sodium', value: pct.sodium },
+      { label: 'Protein', value: pct.protein },
+      { label: 'Karbo', value: pct.carbs },
+      { label: 'Serat', value: pct.fiber },
+      { label: 'Gula', value: pct.sugar }
+    ];
 
-    function displayResult(scores, productName, weight, ageGroup) {
-      const resultDiv = document.getElementById("result");
-      const n = scores.nutrients;
-      const pct = scores.pct_std;
+    let tableHtml = `<table class="akg-table"><tr><th>Nutrisi</th><th>%AKG</th><th>Garis Merah (100%)</th></tr>`;
+    akgRows.forEach(row => {
+      const val = Math.min(row.value, 200);
+      tableHtml += `<tr><td>${row.label}</td><td>${row.value.toFixed(1)}%</td><td style="position: relative;"><div class="value-bar" style="width: ${Math.min(val, 100)}%;"></div><div class="red-line" style="width: 100%;"></div><span style="font-size:10px;">${val > 100 ? '>100%' : ''}</span></td></tr>`;
+    });
+    tableHtml += `</table><p class="small-note">Garis merah = batas 100% AKG. Biru = nilai aktual.</p>`;
 
-      let gerdClass = scores.gerd >= 70 ? "good" : scores.gerd >= 40 ? "warning" : "bad";
-      let heartClass = scores.heart >= 70 ? "good" : scores.heart >= 40 ? "warning" : "bad";
-      let digeClass = scores.digestion >= 70 ? "good" : scores.digestion >= 40 ? "warning" : "bad";
-
-      // Tabel perbandingan %AKG (seperti gambar)
-      const akgRows = [
-        { label: 'Kalori', value: pct.cal },
-        { label: 'Lemak', value: pct.fat },
-        { label: 'Sodium', value: pct.sodium },
-        { label: 'Protein', value: pct.protein },
-        { label: 'Karbo', value: pct.carbs },
-        { label: 'Serat', value: pct.fiber },
-        { label: 'Gula', value: pct.sugar }
-      ];
-
-      let tableHtml = `<table class="akg-table"><tr><th>Nutrisi</th><th>%AKG</th><th>Garis Merah (100%)</th></tr>`;
-      akgRows.forEach(row => {
-        const val = Math.min(row.value, 200); // batasi tampilan
-        tableHtml += `<tr>
-          <td>${row.label}</td>
-          <td>${row.value.toFixed(1)}%</td>
-          <td style="position: relative;">
-            <div class="value-bar" style="width: ${Math.min(val, 100)}%;"></div>
-            <div class="red-line" style="width: 100%;"></div>
-            <span style="font-size:10px;">${val > 100 ? '>100%' : ''}</span>
-          </td>
-        </tr>`;
-      });
-      tableHtml += `</table><p class="small-note">Garis merah = batas 100% AKG. Biru = nilai aktual.</p>`;
-
-      resultDiv.innerHTML = `
-        <div class="card">
-          <div style="font-weight:600; margin-bottom:10px;">${productName} (${weight}g)</div>
-          <div class="metrics-grid">
-            <div class="metric-card"><div class="metric-title">GERD</div><div class="score" style="color:${scores.gerd>=70?'#1e8e3e':scores.gerd>=40?'#f9a825':'#c53929'}">${scores.gerd}</div></div>
-            <div class="metric-card"><div class="metric-title">Jantung</div><div class="score" style="color:${scores.heart>=70?'#1e8e3e':scores.heart>=40?'#f9a825':'#c53929'}">${scores.heart}</div></div>
-            <div class="metric-card"><div class="metric-title">Pencernaan</div><div class="score" style="color:${scores.digestion>=70?'#1e8e3e':scores.digestion>=40?'#f9a825':'#c53929'}">${scores.digestion}</div></div>
-          </div>
-          <div class="progress-bar-bg"><div class="progress-fill ${gerdClass}" style="width:${scores.gerd}%">GERD ${scores.gerd}</div></div>
-          <div class="progress-bar-bg"><div class="progress-fill ${heartClass}" style="width:${scores.heart}%">Jantung ${scores.heart}</div></div>
-          <div class="progress-bar-bg"><div class="progress-fill ${digeClass}" style="width:${scores.digestion}%">Pencernaan ${scores.digestion}</div></div>
-          
-          ${tableHtml}
-
-          <div class="recommend-box">
-            <strong>💡 Rekomendasi usia:</strong> ${scores.ageRec}<br>
-            <strong>🥩 Protein:</strong> ${n.protein.toFixed(1)}g | <strong>🧈 Lemak:</strong> ${n.fat.toFixed(1)}g<br>
-            <strong>🍚 Karbo:</strong> ${n.carbs.toFixed(1)}g | <strong>🌾 Serat:</strong> ${n.fiber.toFixed(1)}g<br>
-            <strong>🧂 Sodium:</strong> ${n.sodium.toFixed(1)}mg | <strong>🍬 Gula:</strong> ${n.sugar.toFixed(1)}g
-          </div>
+    resultDiv.innerHTML = `
+      <div class="card">
+        <div style="font-weight:600; margin-bottom:10px;">${productName} (${weight}g)</div>
+        <div class="metrics-grid">
+          <div class="metric-card"><div class="metric-title">GERD</div><div class="score" style="color:${scores.gerd>=70?'#1e8e3e':scores.gerd>=40?'#f9a825':'#c53929'}">${scores.gerd}</div></div>
+          <div class="metric-card"><div class="metric-title">Jantung</div><div class="score" style="color:${scores.heart>=70?'#1e8e3e':scores.heart>=40?'#f9a825':'#c53929'}">${scores.heart}</div></div>
+          <div class="metric-card"><div class="metric-title">Pencernaan</div><div class="score" style="color:${scores.digestion>=70?'#1e8e3e':scores.digestion>=40?'#f9a825':'#c53929'}">${scores.digestion}</div></div>
         </div>
-      `;
+        <div class="progress-bar-bg"><div class="progress-fill ${gerdClass}" style="width:${scores.gerd}%">GERD ${scores.gerd}</div></div>
+        <div class="progress-bar-bg"><div class="progress-fill ${heartClass}" style="width:${scores.heart}%">Jantung ${scores.heart}</div></div>
+        <div class="progress-bar-bg"><div class="progress-fill ${digeClass}" style="width:${scores.digestion}%">Pencernaan ${scores.digestion}</div></div>
+        ${tableHtml}
+        <div class="recommend-box">
+          <strong>💡 Rekomendasi usia:</strong> ${scores.ageRec}<br>
+          <strong>🥩 Protein:</strong> ${n.protein.toFixed(1)}g | <strong>🧈 Lemak:</strong> ${n.fat.toFixed(1)}g<br>
+          <strong>🍚 Karbo:</strong> ${n.carbs.toFixed(1)}g | <strong>🌾 Serat:</strong> ${n.fiber.toFixed(1)}g<br>
+          <strong>🧂 Sodium:</strong> ${n.sodium.toFixed(1)}mg | <strong>🍬 Gula:</strong> ${n.sugar.toFixed(1)}g
+        </div>
+      </div>`;
 
-      // Radar Chart
-      if (radarChart) radarChart.destroy();
-      radarChart = new Chart(document.getElementById("radarChart"), {
-        type: "radar",
-        data: {
-          labels: ["Kalori", "Lemak", "Gula", "Serat", "Protein", "Sodium"],
-          datasets: [{
-            label: "% AKG (dewasa)",
-            data: [
-              Math.min(100, pct.cal),
-              Math.min(100, pct.fat),
-              Math.min(100, pct.sugar),
-              Math.min(100, pct.fiber),
-              Math.min(100, pct.protein),
-              Math.min(100, pct.sodium)
-            ],
-            backgroundColor: "rgba(30,58,95,0.2)",
-            borderColor: "#1e3a5f"
-          }]
-        },
-        options: { responsive: true, maintainAspectRatio: true, scales: { r: { min: 0, max: 100 } } }
-      });
+    // Radar chart
+    if (radarChart) radarChart.destroy();
+    radarChart = new Chart(document.getElementById('radarChart'), {
+      type: 'radar',
+      data: {
+        labels: ['Kalori', 'Lemak', 'Gula', 'Serat', 'Protein', 'Sodium'],
+        datasets: [{
+          label: '% AKG (dewasa)',
+          data: [Math.min(100, pct.cal), Math.min(100, pct.fat), Math.min(100, pct.sugar), Math.min(100, pct.fiber), Math.min(100, pct.protein), Math.min(100, pct.sodium)],
+          backgroundColor: 'rgba(30,58,95,0.2)',
+          borderColor: '#1e3a5f'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: true, scales: { r: { min: 0, max: 100 } } }
+    });
 
-      // Bar Chart
-      if (barChart) barChart.destroy();
-      barChart = new Chart(document.getElementById("barChart"), {
-        type: "bar",
-        data: {
-          labels: ["Kalori", "Lemak", "Protein", "Karbo", "Serat", "Gula"],
-          datasets: [{
-            data: [n.cal, n.fat, n.protein, n.carbs, n.fiber, n.sugar],
-            backgroundColor: ["#1e3a5f", "#f9a825", "#2e7d32", "#7b1fa2", "#0d47a1", "#c53929"]
-          }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } } }
-      });
-    }
+    // Bar chart
+    if (barChart) barChart.destroy();
+    barChart = new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels: ['Kalori', 'Lemak', 'Protein', 'Karbo', 'Serat', 'Gula'],
+        datasets: [{
+          data: [n.cal, n.fat, n.protein, n.carbs, n.fiber, n.sugar],
+          backgroundColor: ['#1e3a5f', '#f9a825', '#2e7d32', '#7b1fa2', '#0d47a1', '#c53929']
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
 
-    document.getElementById("cekFoodBtn").addEventListener("click", async () => {
-      const input = document.getElementById("foodInput").value.trim();
-      const ageGroup = document.getElementById("ageGroup").value;
-      const source = document.getElementById("dataSource").value;
-      const errorDiv = document.getElementById("errorMessage");
-      const loading = document.getElementById("loadingIndicator");
-      const cekBtn = document.getElementById("cekFoodBtn");
+  // ========== CEK MAKANAN ==========
+  cekFoodBtn.addEventListener('click', async () => {
+    const input = foodInput.value.trim();
+    const ageGroup = ageGroupSelect.value;
+    const source = dataSourceSelect.value;
 
-      if (!input) {
-        errorDiv.classList.remove("hidden");
-        errorDiv.innerHTML = "❌ Masukkan nama makanan.";
-        return;
-      }
+    if (!input) { errorDiv.classList.remove('hidden'); errorDiv.innerHTML = '❌ Masukkan nama makanan.'; return; }
+    const { weight, foodName } = parseInput(input);
+    if (weight <= 0) { errorDiv.classList.remove('hidden'); errorDiv.innerHTML = '❌ Berat harus positif.'; return; }
 
-      const { weight, foodName } = parseInput(input);
-      if (weight <= 0) {
-        errorDiv.classList.remove("hidden");
-        errorDiv.innerHTML = "❌ Berat harus positif.";
-        return;
-      }
+    resultDiv.innerHTML = '';
+    errorDiv.classList.add('hidden');
+    loadingIndicator.classList.remove('hidden');
+    cekFoodBtn.disabled = true;
 
-      // Tampilkan loading, sembunyikan hasil & error
-      document.getElementById("result").innerHTML = "";
-      errorDiv.classList.add("hidden");
-      loading.classList.remove("hidden");
-      cekBtn.disabled = true;
-
-      try {
-        let product = await searchFood(foodName, source);
-        if (!product) {
-          // Fallback lokal
-          const lowerQuery = foodName.toLowerCase();
-          for (let key in FALLBACK) {
-            if (lowerQuery.includes(key)) {
-              product = { product_name: key, nutriments: FALLBACK[key] };
-              break;
-            }
+    try {
+      let product = await searchFood(foodName, source);
+      if (!product) {
+        // fallback lokal
+        const lower = foodName.toLowerCase();
+        for (let key in FALLBACK) {
+          if (lower.includes(key)) {
+            product = { product_name: key, nutriments: FALLBACK[key] };
+            break;
           }
         }
-
-        if (!product) throw new Error("Makanan tidak ditemukan");
-
-        const nutriments = extractNutriments(product);
-        const scores = calculateScores(nutriments, weight, ageGroup);
-        displayResult(scores, product.product_name || foodName, weight, ageGroup);
-
-        if (currentUser) {
-          const history = JSON.parse(localStorage.getItem("history")) || {};
-          if (!history[currentUser]) history[currentUser] = [];
-          history[currentUser].push({
-            food: foodName,
-            weight: weight,
-            gerd: scores.gerd,
-            heart: scores.heart,
-            digestion: scores.digestion,
-            time: new Date().toLocaleString("id-ID")
-          });
-          localStorage.setItem("history", JSON.stringify(history));
-        }
-      } catch (error) {
-        errorDiv.classList.remove("hidden");
-        errorDiv.innerHTML = `❌ ${error.message}`;
-      } finally {
-        loading.classList.add("hidden");
-        cekBtn.disabled = false;
       }
-    });
+      if (!product) throw new Error('Makanan tidak ditemukan');
 
-    function loadHistory() {
-      const listDiv = document.getElementById("historyList");
-      listDiv.innerHTML = "";
-      if (!currentUser) { listDiv.innerHTML = "<p class='card'>🔒 Login untuk lihat riwayat.</p>"; return; }
-      const history = JSON.parse(localStorage.getItem("history"))?.[currentUser] || [];
-      if (!history.length) { listDiv.innerHTML = "<p class='card'>📭 Belum ada riwayat.</p>"; return; }
-      history.slice().reverse().forEach(item => {
-        const div = document.createElement("div");
-        div.className = "card";
-        div.innerHTML = `
-          <div>${item.time}</div>
-          <div><strong>${item.food} (${item.weight}g)</strong></div>
-          <div style="display:flex; gap:6px; margin-top:6px;">
-            <span class="pill" style="background:${item.gerd>=70?'#1e8e3e':item.gerd>=40?'#f9a825':'#c53929'}">G:${item.gerd}</span>
-            <span class="pill" style="background:${item.heart>=70?'#1e8e3e':item.heart>=40?'#f9a825':'#c53929'}">J:${item.heart}</span>
-            <span class="pill" style="background:${item.digestion>=70?'#1e8e3e':item.digestion>=40?'#f9a825':'#c53929'}">P:${item.digestion}</span>
-          </div>
-        `;
-        listDiv.appendChild(div);
-      });
+      const nutriments = extractNutriments(product);
+      const scores = calculateScores(nutriments, weight, ageGroup);
+      displayResult(scores, product.product_name || foodName, weight, ageGroup);
+
+      if (currentUser) {
+        const history = JSON.parse(localStorage.getItem('history')) || {};
+        if (!history[currentUser]) history[currentUser] = [];
+        history[currentUser].push({
+          food: foodName,
+          weight,
+          gerd: scores.gerd,
+          heart: scores.heart,
+          digestion: scores.digestion,
+          time: new Date().toLocaleString('id-ID')
+        });
+        localStorage.setItem('history', JSON.stringify(history));
+      }
+    } catch (err) {
+      errorDiv.classList.remove('hidden');
+      errorDiv.innerHTML = `❌ ${err.message}`;
+    } finally {
+      loadingIndicator.classList.add('hidden');
+      cekFoodBtn.disabled = false;
+    }
+  });
+
+  // ========== KAMERA & LOGMEAL ==========
+  openCameraBtn.addEventListener('click', async () => {
+    cameraVideo.classList.remove('hidden');
+    takePhotoBtn.classList.remove('hidden');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      cameraVideo.srcObject = stream;
+      cameraStream = stream;
+      await cameraVideo.play();
+    } catch (e) {
+      alert('Kamera tidak dapat diakses: ' + e.message);
+    }
+  });
+
+  takePhotoBtn.addEventListener('click', async () => {
+    if (!cameraVideo.videoWidth) { alert('Video belum siap'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = cameraVideo.videoWidth;
+    canvas.height = cameraVideo.videoHeight;
+    canvas.getContext('2d').drawImage(cameraVideo, 0, 0);
+    const dataURL = canvas.toDataURL('image/jpeg');
+    capturedImage.src = dataURL;
+    capturedImage.classList.remove('hidden');
+    foodInput.value = 'Mendeteksi...';
+
+    // Hentikan kamera
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraVideo.srcObject = null;
+      cameraVideo.classList.add('hidden');
+      takePhotoBtn.classList.add('hidden');
     }
 
-    document.getElementById("exportCsvBtn").addEventListener("click", () => {
-      if (!currentUser) return alert("Login dulu.");
-      const history = JSON.parse(localStorage.getItem("history"))?.[currentUser] || [];
-      if (!history.length) return alert("Tidak ada data.");
-      let csv = "Waktu,Makanan,Berat (g),GERD,Jantung,Pencernaan\n";
-      history.forEach(i => csv += `"${i.time}","${i.food}",${i.weight},${i.gerd},${i.heart},${i.digestion}\n`);
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `riwayat_${currentUser}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+    // Kirim ke LogMeal
+    try {
+      const blob = await (await fetch(dataURL)).blob();
+      const formData = new FormData();
+      formData.append('image', blob);
+      const response = await fetch('https://api.logmeal.es/v2/recognition/complete', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + LOGMEAL_TOKEN },
+        body: formData
+      });
+      if (!response.ok) throw new Error('LogMeal error');
+      const result = await response.json();
+      const foodName = result.recognition_results?.[0]?.name || 'Tidak dikenal';
+      foodInput.value = foodName;
+    } catch (e) {
+      console.warn('LogMeal gagal, fallback ke input manual', e);
+      foodInput.value = 'Gagal mendeteksi, ketik manual';
+    }
+  });
 
-    if (currentUser) document.getElementById("welcome").innerText = "Halo kembali, " + currentUser + " 👋";
-  })();
+  // ========== HISTORY ==========
+  function loadHistory() {
+    const listDiv = document.getElementById('historyList');
+    listDiv.innerHTML = '';
+    if (!currentUser) { listDiv.innerHTML = "<p class='card'>🔒 Login untuk lihat riwayat.</p>"; return; }
+    const history = JSON.parse(localStorage.getItem('history'))?.[currentUser] || [];
+    if (!history.length) { listDiv.innerHTML = "<p class='card'>📭 Belum ada riwayat.</p>"; return; }
+    history.slice().reverse().forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div>${item.time}</div>
+        <div><strong>${item.food} (${item.weight}g)</strong></div>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <span class="pill" style="background:${item.gerd>=70?'#1e8e3e':item.gerd>=40?'#f9a825':'#c53929'}">G:${item.gerd}</span>
+          <span class="pill" style="background:${item.heart>=70?'#1e8e3e':item.heart>=40?'#f9a825':'#c53929'}">J:${item.heart}</span>
+          <span class="pill" style="background:${item.digestion>=70?'#1e8e3e':item.digestion>=40?'#f9a825':'#c53929'}">P:${item.digestion}</span>
+        </div>
+      `;
+      listDiv.appendChild(div);
+    });
+  }
+
+  // ========== EXPORT CSV ==========
+  document.getElementById('exportCsvBtn').addEventListener('click', () => {
+    if (!currentUser) return alert('Login dulu.');
+    const history = JSON.parse(localStorage.getItem('history'))?.[currentUser] || [];
+    if (!history.length) return alert('Tidak ada data.');
+    let csv = 'Waktu,Makanan,Berat (g),GERD,Jantung,Pencernaan\n';
+    history.forEach(i => csv += `"${i.time}","${i.food}",${i.weight},${i.gerd},${i.heart},${i.digestion}\n`);
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `riwayat_${currentUser}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Tampilkan section awal
+  showSection('food');
+})();
 </script>
 </body>
 </html>
