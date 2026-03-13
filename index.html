@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NutriCheck Pro</title>
+  <title>NutriCheck Pro - Improved</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
+    /* (CSS sama seperti sebelumnya, ringkas) */
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
     body { background: #e8f0fe; display: flex; justify-content: center; padding: 12px; }
     .app { width: 420px; max-width: 100%; background: white; border-radius: 32px 32px 0 0; box-shadow: 0 20px 40px rgba(0,20,30,0.15); overflow: hidden; }
@@ -54,11 +55,9 @@
     <input type="text" id="searchFood" placeholder="Cari makanan cepat..." />
     <div id="foodListContainer"></div>
     
-    <div class="row">
-      <input type="text" id="foodInput" placeholder="Misal: 50g egg atau apple" />
-      <select id="weightUnit"><option value="g">gram</option></select>
-    </div>
-    <input type="number" id="weightInput" placeholder="Berat (gram)" min="1" value="100" />
+    <!-- Input tunggal untuk nama+berat (misal: 100g burger) -->
+    <input type="text" id="foodInput" placeholder="Contoh: 100g burger atau 200g nasi" value="100g burger" />
+    <p style="font-size:12px; color:#666;">Kamu bisa tulis langsung dengan berat, misal "100g burger"</p>
     
     <div class="row">
       <select id="ageGroup">
@@ -96,8 +95,17 @@
     let currentUser = localStorage.getItem("user") || "";
     let radarChart, barChart;
 
-    // Daftar saran makanan umum (hanya untuk UI, bukan database)
-    const foodSuggestions = ["egg", "apple", "banana", "rice", "chicken", "bread", "milk", "yogurt", "tofu", "broccoli", "carrot"];
+    // Database fallback minimal untuk beberapa makanan (jika API gagal)
+    const FALLBACK = {
+      burger: { calories: 295, fat: 17, saturated_fat: 7, carbohydrates: 24, sugar: 6, fiber: 1, protein: 17, sodium: 500, cholesterol: 50 },
+      pizza: { calories: 266, fat: 10, saturated_fat: 4, carbohydrates: 33, sugar: 4, fiber: 2, protein: 11, sodium: 600, cholesterol: 20 },
+      fries: { calories: 312, fat: 15, saturated_fat: 2.3, carbohydrates: 41, sugar: 0.3, fiber: 3.8, protein: 3.4, sodium: 210, cholesterol: 0 },
+      apple: { calories: 52, fat: 0.2, saturated_fat: 0, carbohydrates: 14, sugar: 10, fiber: 2.4, protein: 0.3, sodium: 1, cholesterol: 0 },
+      banana: { calories: 89, fat: 0.3, saturated_fat: 0.1, carbohydrates: 23, sugar: 12, fiber: 2.6, protein: 1.1, sodium: 1, cholesterol: 0 },
+      egg: { calories: 155, fat: 11, saturated_fat: 3.3, carbohydrates: 1.1, sugar: 1.1, fiber: 0, protein: 13, sodium: 124, cholesterol: 373 }
+    };
+
+    const foodSuggestions = Object.keys(FALLBACK);
 
     function showSection(id) {
       document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
@@ -130,32 +138,82 @@
         const div = document.createElement("div");
         div.className = "food-card";
         div.innerText = f.charAt(0).toUpperCase() + f.slice(1);
-        div.onclick = () => document.getElementById("foodInput").value = f;
+        div.onclick = () => document.getElementById("foodInput").value = "100g " + f;
         container.appendChild(div);
       });
     }
     document.getElementById("searchFood").addEventListener("input", (e) => renderSuggestions(e.target.value));
     renderSuggestions();
 
-    // API Open Food Facts
-    async function searchFood(query) {
-      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (!data.products || data.products.length === 0) throw new Error("Makanan tidak ditemukan");
-      
-      // Cari produk pertama yang memiliki nutrisi
-      for (let product of data.products) {
-        if (product.nutriments && Object.keys(product.nutriments).length > 0) {
-          return product;
-        }
+    // Fungsi untuk memparse input seperti "100g burger" atau "200g nasi"
+    function parseInput(input) {
+      input = input.trim();
+      // Regex untuk menangkap angka diikuti spasi optional dan 'g' atau 'gram'
+      const match = input.match(/^(\d+)\s*(?:g|gram)?\s+(.+)$/i);
+      if (match) {
+        const weight = parseFloat(match[1]);
+        const foodName = match[2].trim();
+        return { weight, foodName };
+      } else {
+        // Jika tidak ada angka, asumsikan default 100g
+        return { weight: 100, foodName: input };
       }
-      throw new Error("Produk tidak memiliki data nutrisi");
+    }
+
+    // API Open Food Facts dengan fallback
+    async function searchFood(query) {
+      const errorDiv = document.getElementById("errorMessage");
+      errorDiv.classList.add("hidden");
+      
+      // Coba cari di Open Food Facts
+      try {
+        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        
+        if (data.products && data.products.length > 0) {
+          // Cari produk yang memiliki nutrisi dan relevan (misal nama mengandung kata kunci)
+          for (let product of data.products) {
+            const productName = (product.product_name || "").toLowerCase();
+            if (product.nutriments && Object.keys(product.nutriments).length > 0) {
+              // Jika nama produk mengandung query (atau sebaliknya), anggap cocok
+              if (productName.includes(query.toLowerCase()) || query.toLowerCase().includes(productName)) {
+                console.log("Produk ditemukan:", product.product_name);
+                return product;
+              }
+            }
+          }
+          // Jika tidak ada yang cocok, ambil produk pertama yang memiliki nutrisi
+          for (let product of data.products) {
+            if (product.nutriments && Object.keys(product.nutriments).length > 0) {
+              console.log("Produk (kurang relevan):", product.product_name);
+              return product;
+            }
+          }
+        }
+        // Jika tidak ada produk dengan nutrisi, lempar error
+        throw new Error("Tidak ada data nutrisi untuk produk ini");
+      } catch (error) {
+        console.warn("API gagal, coba fallback untuk:", query);
+        // Fallback ke database lokal
+        const lowerQuery = query.toLowerCase();
+        for (let key in FALLBACK) {
+          if (lowerQuery.includes(key)) {
+            console.log("Menggunakan fallback untuk:", key);
+            return { product_name: key, nutriments: FALLBACK[key] };
+          }
+        }
+        // Jika tidak ada fallback, lempar error
+        errorDiv.classList.remove("hidden");
+        errorDiv.innerHTML = `❌ Makanan "${query}" tidak ditemukan. Coba gunakan saran di atas.`;
+        throw new Error("Makanan tidak ditemukan");
+      }
     }
 
     function extractNutriments(product) {
       const n = product.nutriments || {};
+      // Normalisasi field yang mungkin berbeda
       return {
         calories: n.energy_value || n.energy_100g || n.energy || 0,
         fat: n.fat_value || n.fat_100g || n.fat || 0,
@@ -169,6 +227,7 @@
       };
     }
 
+    // Fungsi scoring yang lebih ketat
     function calculateScores(nutriPer100g, weight, ageGroup) {
       const factor = weight / 100;
       const cal = nutriPer100g.calories * factor;
@@ -181,29 +240,45 @@
       const protein = nutriPer100g.protein * factor;
       const carbs = nutriPer100g.carbohydrates * factor;
 
+      // GERD: lemak tinggi, gula, sodium, kalori, serat rendah
       let gerd = 100;
-      if (fat > 15) gerd -= 20;
-      if (sugar > 15) gerd -= 15;
-      if (sodium > 500) gerd -= 15;
-      if (cal > 350) gerd -= 10;
-      if (fiber > 5) gerd += 5;
+      if (fat > 10) gerd -= 15;          // lebih sensitif
+      if (fat > 20) gerd -= 15;
+      if (sugar > 10) gerd -= 10;
+      if (sugar > 20) gerd -= 10;
+      if (sodium > 400) gerd -= 10;
+      if (sodium > 800) gerd -= 15;
+      if (cal > 300) gerd -= 10;
+      if (fiber < 2) gerd -= 5;
       gerd = Math.min(100, Math.max(0, gerd));
 
+      // Jantung: lemak jenuh, sodium, kolesterol, serat
       let heart = 100;
-      if (satFat > 5) heart -= 25;
-      if (sodium > 400) heart -= 20;
-      if (cholesterol > 100) heart -= 20;
-      if (fiber > 3) heart += 10;
+      if (satFat > 3) heart -= 10;
+      if (satFat > 6) heart -= 15;
+      if (sodium > 400) heart -= 10;
+      if (sodium > 700) heart -= 15;
+      if (cholesterol > 100) heart -= 10;
+      if (cholesterol > 200) heart -= 15;
+      if (fiber < 2) heart -= 5;
       heart = Math.min(100, Math.max(0, heart));
 
+      // Pencernaan: serat, gula, karbohidrat kompleks
       let digestion = 100;
-      if (fiber < 2) digestion -= 30;
-      if (sugar > 20) digestion -= 15;
-      if (carbs - fiber - sugar < 5) digestion -= 10;
+      if (fiber < 2) digestion -= 20;
+      if (fiber < 1) digestion -= 15;
+      if (sugar > 15) digestion -= 15;
+      if (carbs - fiber - sugar < 5) digestion -= 10; // sedikit karbo kompleks
       digestion = Math.min(100, Math.max(0, digestion));
 
+      // Batasan kalori berdasarkan usia
       let calLimit = ageGroup === "child" ? 1500 : ageGroup === "senior" ? 1800 : 2000;
-      let ageRec = cal > calLimit * 0.3 ? "⚠️ Porsi ini cukup besar untuk usia ini." : "✅ Porsi sesuai untuk usia Anda.";
+      let ageRec = "";
+      if (cal > calLimit * 0.3) {
+        ageRec = "⚠️ Porsi ini cukup besar (" + cal.toFixed(0) + " kkal). Perhatikan total harian.";
+      } else {
+        ageRec = "✅ Porsi ini sesuai untuk usia Anda.";
+      }
 
       return {
         gerd: Math.round(gerd),
@@ -281,26 +356,21 @@
     }
 
     document.getElementById("cekFoodBtn").addEventListener("click", async () => {
-      let rawInput = document.getElementById("foodInput").value.trim();
-      let weight = parseFloat(document.getElementById("weightInput").value);
-      let ageGroup = document.getElementById("ageGroup").value;
+      const input = document.getElementById("foodInput").value.trim();
+      const ageGroup = document.getElementById("ageGroup").value;
       const errorDiv = document.getElementById("errorMessage");
 
-      // Regex untuk menangkap pola seperti "50g egg", "50 gr apple", "50gram banana"
-      const gramRegex = /^(\d+(?:\.\d+)?)\s*(g|gr|gram)?\s+(.+)$/i;
-      const match = rawInput.match(gramRegex);
-      if (match) {
-        // Ekstrak berat dari input
-        weight = parseFloat(match[1]);
-        rawInput = match[3]; // nama makanan
-        // Update field berat agar sinkron
-        document.getElementById("weightInput").value = weight;
+      if (!input) {
+        errorDiv.classList.remove("hidden");
+        errorDiv.innerHTML = "❌ Masukkan nama makanan.";
+        return;
       }
 
-      const foodName = rawInput.toLowerCase();
-      if (!foodName || !weight || weight <= 0) {
+      // Parse input untuk mendapatkan berat dan nama
+      const { weight, foodName } = parseInput(input);
+      if (weight <= 0) {
         errorDiv.classList.remove("hidden");
-        errorDiv.innerHTML = "❌ Masukkan nama makanan dan berat yang valid.";
+        errorDiv.innerHTML = "❌ Berat harus positif.";
         return;
       }
 
@@ -328,8 +398,7 @@
         }
       } catch (error) {
         console.error(error);
-        errorDiv.classList.remove("hidden");
-        errorDiv.innerHTML = `❌ Error: ${error.message}. Coba makanan lain atau periksa koneksi.`;
+        // Error sudah ditampilkan di fungsi searchFood
       }
     });
 
