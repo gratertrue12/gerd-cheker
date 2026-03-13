@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NutriCheck · Edamam siap pakai</title>
+  <title>NutriCheck · API tersemat</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
@@ -31,7 +31,6 @@
     .progress-fill { height: 100%; color: white; font-size: 13px; text-align: center; line-height: 24px; font-weight: 500; }
     .good { background: #1e8e3e; } .warning { background: #f9a825; } .bad { background: #c53929; }
     .chart-container { height: 200px; margin: 20px 0; }
-    /* beri jarak antar chart */
     .chart-wrapper .chart-container:first-child { margin-bottom: 30px; }
     .recommend-box { background: #e4f0fa; padding: 16px; border-radius: 20px; border-left: 5px solid #1e3a5f; margin-top: 16px; }
     .footer-note { font-size: 12px; color: #7a8faa; text-align: center; margin-top: 16px; }
@@ -48,14 +47,10 @@
   </div>
 
   <section id="account" class="section">
-    <h2>👤 Akun & API</h2>
+    <h2>👤 Akun</h2>
     <input type="text" id="username" placeholder="Nama (opsional)" value="" />
-    <div style="margin: 16px 0 8px; border-top: 1px dashed #bdd3e8;"></div>
-    <h3 style="font-size: 16px; margin-bottom: 6px;">🔑 Edamam API (terisi otomatis)</h3>
-    <input type="text" id="edamamAppId" placeholder="App ID" value="83a6c971" />
-    <input type="text" id="edamamAppKey" placeholder="App Key" value="f57d9ecae7775582f830d07bfeecfbf4" />
-    <p class="small-note">API key default sudah disertakan. Anda bisa menggantinya jika perlu.</p>
-    <button id="saveUserBtn">Simpan Pengaturan</button>
+    <button id="saveUserBtn">Simpan Nama</button>
+    <p class="small-note" style="margin-top:12px;">🔑 API Key sudah tertanam, siap digunakan.</p>
   </section>
 
   <section id="food" class="section hidden">
@@ -99,15 +94,13 @@
 
 <script>
   (function() {
-    // ================== DEFAULT API KEY (langsung dimasukkan) ==================
-    const DEFAULT_APP_ID = "83a6c971";
-    const DEFAULT_APP_KEY = "f57d9ecae7775582f830d07bfeecfbf4";
+    // ========== KUNCI API LANGSUNG DISINI (tidak perlu input user) ==========
+    const APP_ID = "83a6c971";
+    const APP_KEY = "f57d9ecae7775582f830d07bfeecfbf4";
+    // (Logmeal token disertakan untuk keperluan future, tidak dipakai sekarang)
+    // const LOGMEAL_TOKEN = "937a44034a0fac902bd07ab4bceae7a13a233497";
 
-    // Ambil dari localStorage, jika kosong gunakan default
     let currentUser = localStorage.getItem("user") || "";
-    let edamamId = localStorage.getItem("edamamAppId") || DEFAULT_APP_ID;
-    let edamamKey = localStorage.getItem("edamamAppKey") || DEFAULT_APP_KEY;
-    
     let radarChart, barChart;
 
     // Database fallback minimal
@@ -125,10 +118,8 @@
 
     const foodSuggestions = Object.keys(FALLBACK);
 
-    // Tampilkan nilai di input akun (default sudah terisi)
+    // Tampilkan nama user jika ada
     document.getElementById("username").value = currentUser;
-    document.getElementById("edamamAppId").value = edamamId;
-    document.getElementById("edamamAppKey").value = edamamKey;
 
     function showSection(id) {
       document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
@@ -143,13 +134,7 @@
 
     document.getElementById("saveUserBtn").addEventListener("click", () => {
       const name = document.getElementById("username").value.trim();
-      const appId = document.getElementById("edamamAppId").value.trim();
-      const appKey = document.getElementById("edamamAppKey").value.trim();
-
       currentUser = name;
-      edamamId = appId;
-      edamamKey = appKey;
-
       if (currentUser) {
         localStorage.setItem("user", currentUser);
         document.getElementById("welcome").innerText = "Halo, " + currentUser + " 👋";
@@ -157,14 +142,6 @@
         localStorage.removeItem("user");
         document.getElementById("welcome").innerText = "Halo, selamat datang!";
       }
-
-      // Simpan api key (jika dikosongkan, hapus dari localStorage, tapi default akan dipakai lagi saat reload)
-      if (edamamId) localStorage.setItem("edamamAppId", edamamId);
-      else localStorage.removeItem("edamamAppId");
-      if (edamamKey) localStorage.setItem("edamamAppKey", edamamKey);
-      else localStorage.removeItem("edamamAppKey");
-
-      alert('Pengaturan disimpan.');
     });
 
     function renderSuggestions(filter = "") {
@@ -193,11 +170,9 @@
       }
     }
 
-    // ============== EDAMAM API ==============
+    // ============== EDAMAM API (menggunakan konstanta langsung) ==============
     async function searchEdamam(query) {
-      if (!edamamId || !edamamKey) return null;
-
-      const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${encodeURIComponent(edamamId)}&app_key=${encodeURIComponent(edamamKey)}&ingr=${encodeURIComponent(query)}`;
+      const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${APP_ID}&app_key=${APP_KEY}&ingr=${encodeURIComponent(query)}`;
       try {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`Edamam HTTP ${res.status}`);
@@ -205,18 +180,17 @@
         if (data.hints && data.hints.length > 0) {
           const food = data.hints[0].food;
           const nutrients = food.nutrients || {};
-          // Map ke format kita (per 100g)
           return {
             product_name: food.label || query,
             nutriments: {
               calories: nutrients.ENERC_KCAL || 0,
               fat: nutrients.FAT || 0,
-              saturated_fat: 0, // edamam tidak selalu memberikan saturated fat di basic
+              saturated_fat: 0,
               carbohydrates: nutrients.CHOCDF || 0,
               sugar: nutrients.SUGAR || 0,
               fiber: nutrients.FIBTG || 0,
               protein: nutrients.PROCNT || 0,
-              sodium: nutrients.NA ? (nutrients.NA < 10 ? nutrients.NA * 1000 : nutrients.NA) : 0, // tebak: jika <10 asumsikan gram->mg
+              sodium: nutrients.NA ? (nutrients.NA < 10 ? nutrients.NA * 1000 : nutrients.NA) : 0,
               cholesterol: 0
             }
           };
@@ -261,14 +235,11 @@
       const errorDiv = document.getElementById("errorMessage");
       errorDiv.classList.add("hidden");
 
-      // 1. Coba Edamam (selalu coba karena sudah ada default key)
-      let product = null;
-      if (edamamId && edamamKey) {
-        product = await searchEdamam(query);
-        if (product) {
-          console.log("Hasil dari Edamam:", product.product_name);
-          return product;
-        }
+      // 1. Coba Edamam (pasti ada key)
+      let product = await searchEdamam(query);
+      if (product) {
+        console.log("Hasil dari Edamam:", product.product_name);
+        return product;
       }
 
       // 2. Coba Open Food Facts
@@ -425,7 +396,7 @@
         </div>
       `;
 
-      // Radar Chart ( % AKG dewasa untuk visual)
+      // Radar Chart
       if (radarChart) radarChart.destroy();
       radarChart = new Chart(document.getElementById("radarChart"), {
         type: "radar",
