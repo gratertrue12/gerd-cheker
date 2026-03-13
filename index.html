@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NutriCheck · API tersemat</title>
+  <title>NutriCheck · Pilihan Sumber Data</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
@@ -37,6 +37,7 @@
     .error-box { background: #ffebee; padding: 16px; border-radius: 16px; border-left: 5px solid #c62828; margin: 10px 0; color: #b71c1c; }
     .pill { display: inline-block; padding: 4px 12px; border-radius: 40px; color: white; font-size: 13px; font-weight: 600; }
     .small-note { font-size: 12px; color: #5d7fa5; margin-top: 4px; }
+    .data-source-select { margin-bottom: 12px; }
   </style>
 </head>
 <body>
@@ -50,7 +51,7 @@
     <h2>👤 Akun</h2>
     <input type="text" id="username" placeholder="Nama (opsional)" value="" />
     <button id="saveUserBtn">Simpan Nama</button>
-    <p class="small-note" style="margin-top:12px;">🔑 API Key sudah tertanam, siap digunakan.</p>
+    <p class="small-note" style="margin-top:12px;">🔑 API Key Edamam sudah tertanam.</p>
   </section>
 
   <section id="food" class="section hidden">
@@ -59,8 +60,17 @@
     <div id="foodListContainer"></div>
     
     <input type="text" id="foodInput" placeholder="Contoh: 100g burger atau 200g nasi" value="100g telur" />
-    <p style="font-size:12px; color:#666;">Kamu bisa tulis langsung dengan berat, misal "100g telur"</p>
+    <p style="font-size:12px; color:#666;">Tulis dengan berat, misal "100g telur"</p>
     
+    <!-- Pilihan sumber data -->
+    <div class="data-source-select">
+      <select id="dataSource">
+        <option value="auto" selected>🔀 Otomatis (Edamam dulu, lalu OpenFood)</option>
+        <option value="edamam">🌱 Edamam (makanan umum)</option>
+        <option value="off">🏷️ Open Food Facts (produk bermerek)</option>
+      </select>
+    </div>
+
     <div class="row">
       <select id="ageGroup">
         <option value="child">Anak-anak (≤12 th)</option>
@@ -94,11 +104,9 @@
 
 <script>
   (function() {
-    // ========== KUNCI API LANGSUNG DISINI (tidak perlu input user) ==========
+    // ========== KUNCI API LANGSUNG DISINI ==========
     const APP_ID = "83a6c971";
     const APP_KEY = "f57d9ecae7775582f830d07bfeecfbf4";
-    // (Logmeal token disertakan untuk keperluan future, tidak dipakai sekarang)
-    // const LOGMEAL_TOKEN = "937a44034a0fac902bd07ab4bceae7a13a233497";
 
     let currentUser = localStorage.getItem("user") || "";
     let radarChart, barChart;
@@ -118,7 +126,6 @@
 
     const foodSuggestions = Object.keys(FALLBACK);
 
-    // Tampilkan nama user jika ada
     document.getElementById("username").value = currentUser;
 
     function showSection(id) {
@@ -159,7 +166,6 @@
     document.getElementById("searchFood").addEventListener("input", (e) => renderSuggestions(e.target.value));
     renderSuggestions();
 
-    // Parse input seperti "100g burger"
     function parseInput(input) {
       input = input.trim();
       const match = input.match(/^(\d+)\s*(?:g|gram)?\s+(.+)$/i);
@@ -170,46 +176,61 @@
       }
     }
 
-    // ============== EDAMAM API (menggunakan konstanta langsung) ==============
+    // ========== EDAMAM (diperbaiki) ==========
     async function searchEdamam(query) {
       const url = `https://api.edamam.com/api/food-database/v2/parser?app_id=${APP_ID}&app_key=${APP_KEY}&ingr=${encodeURIComponent(query)}`;
       try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Edamam HTTP ${res.status}`);
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'NutriCheck/1.0 (https://nutricheck.app)' }
+        });
+        if (!res.ok) {
+          console.warn(`Edamam HTTP error: ${res.status}`);
+          return null;
+        }
         const data = await res.json();
+        console.log('Edamam response:', data); // untuk debugging
+
         if (data.hints && data.hints.length > 0) {
           const food = data.hints[0].food;
-          const nutrients = food.nutrients || {};
+          if (!food || !food.nutrients) return null;
+
+          const nutrients = food.nutrients;
+          // Ambil nilai per 100g (sudah default dari Edamam)
           return {
             product_name: food.label || query,
             nutriments: {
               calories: nutrients.ENERC_KCAL || 0,
               fat: nutrients.FAT || 0,
-              saturated_fat: 0,
+              saturated_fat: 0, // Edamam tidak selalu menyediakan
               carbohydrates: nutrients.CHOCDF || 0,
               sugar: nutrients.SUGAR || 0,
               fiber: nutrients.FIBTG || 0,
               protein: nutrients.PROCNT || 0,
+              // sodium biasanya dalam mg, tapi jika <10 asumsikan gram, konversi
               sodium: nutrients.NA ? (nutrients.NA < 10 ? nutrients.NA * 1000 : nutrients.NA) : 0,
               cholesterol: 0
             }
           };
+        } else {
+          console.warn('Edamam: no hints found');
         }
       } catch (e) {
-        console.warn("Edamam error", e);
+        console.warn('Edamam exception:', e);
       }
       return null;
     }
 
-    // ============== OPEN FOOD FACTS ==============
+    // ========== OPEN FOOD FACTS ==========
     async function searchOpenFoodFacts(query) {
+      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`;
       try {
-        const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=5`;
-        const res = await fetch(url);
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'NutriCheck/1.0' }
+        });
         if (!res.ok) throw new Error(`OFF HTTP ${res.status}`);
         const data = await res.json();
-        
         if (data.products && data.products.length > 0) {
+          // Cari produk dengan nutrisi dan nama relevan
           for (let product of data.products) {
             const productName = (product.product_name || "").toLowerCase();
             if (product.nutriments && Object.keys(product.nutriments).length > 0) {
@@ -218,6 +239,7 @@
               }
             }
           }
+          // Ambil produk pertama yang punya nutrisi
           for (let product of data.products) {
             if (product.nutriments && Object.keys(product.nutriments).length > 0) {
               return product;
@@ -230,36 +252,39 @@
       return null;
     }
 
-    // Gabungan: Edamam -> OFF -> fallback lokal
-    async function searchFood(query) {
+    // ========== PENCARIAN UTAMA DENGAN PILIHAN SUMBER ==========
+    async function searchFood(query, source) {
       const errorDiv = document.getElementById("errorMessage");
       errorDiv.classList.add("hidden");
 
-      // 1. Coba Edamam (pasti ada key)
-      let product = await searchEdamam(query);
+      let product = null;
+
+      if (source === 'edamam') {
+        product = await searchEdamam(query);
+      } else if (source === 'off') {
+        product = await searchOpenFoodFacts(query);
+      } else { // auto
+        product = await searchEdamam(query);
+        if (!product) {
+          product = await searchOpenFoodFacts(query);
+        }
+      }
+
       if (product) {
-        console.log("Hasil dari Edamam:", product.product_name);
         return product;
       }
 
-      // 2. Coba Open Food Facts
-      product = await searchOpenFoodFacts(query);
-      if (product) {
-        console.log("Hasil dari Open Food Facts:", product.product_name);
-        return product;
-      }
-
-      // 3. Fallback lokal
+      // Fallback lokal
       const lowerQuery = query.toLowerCase();
       for (let key in FALLBACK) {
         if (lowerQuery.includes(key)) {
-          console.log("Menggunakan fallback lokal untuk:", key);
+          console.log("Fallback lokal untuk:", key);
           return { product_name: key, nutriments: FALLBACK[key] };
         }
       }
 
       errorDiv.classList.remove("hidden");
-      errorDiv.innerHTML = `❌ Makanan "${query}" tidak ditemukan di manapun. Coba saran di atas.`;
+      errorDiv.innerHTML = `❌ Makanan "${query}" tidak ditemukan. Coba sumber lain atau saran di atas.`;
       throw new Error("Makanan tidak ditemukan");
     }
 
@@ -278,7 +303,6 @@
       };
     }
 
-    // Batas harian berdasarkan usia
     function getDailyLimits(ageGroup) {
       if (ageGroup === 'child') {
         return { cal:1500, fat:50, satFat:15, carbs:225, sugar:40, fiber:20, protein:45, sodium:1500, cholesterol:250 };
@@ -304,7 +328,6 @@
       };
 
       const limits = getDailyLimits(ageGroup);
-
       const pct = {
         cal: (n.cal / limits.cal) * 100,
         fat: (n.fat / limits.fat) * 100,
@@ -322,10 +345,8 @@
       if (pct.fat > 20) gerdPenalty += (pct.fat - 20) * 1.5;
       if (pct.satFat > 15) gerdPenalty += (pct.satFat - 15) * 2;
       if (pct.cal > 25) gerdPenalty += (pct.cal - 25) * 1;
-
       let gerdBonus = 0;
       if (pct.fiber > 10) gerdBonus = Math.min(10, (pct.fiber - 10) * 0.5);
-
       let gerdScore = 100 - gerdPenalty + gerdBonus;
       gerdScore = Math.min(100, Math.max(0, Math.round(gerdScore)));
 
@@ -334,10 +355,8 @@
       if (pct.satFat > 15) heartPenalty += (pct.satFat - 15) * 2;
       if (pct.sodium > 20) heartPenalty += (pct.sodium - 20) * 1.5;
       if (pct.cholesterol > 20) heartPenalty += (pct.cholesterol - 20) * 1;
-
       let heartBonus = 0;
       if (pct.fiber > 10) heartBonus = Math.min(10, (pct.fiber - 10) * 0.5);
-
       let heartScore = 100 - heartPenalty + heartBonus;
       heartScore = Math.min(100, Math.max(0, Math.round(heartScore)));
 
@@ -347,7 +366,6 @@
       if (pct.fiber < 10) digestionPenalty += (10 - pct.fiber) * 2;
       const complex = n.carbs - n.fiber - n.sugar;
       if (complex < 5) digestionPenalty += (5 - complex) * 1;
-
       let digestionScore = 100 - digestionPenalty;
       digestionScore = Math.min(100, Math.max(0, Math.round(digestionScore)));
 
@@ -396,7 +414,6 @@
         </div>
       `;
 
-      // Radar Chart
       if (radarChart) radarChart.destroy();
       radarChart = new Chart(document.getElementById("radarChart"), {
         type: "radar",
@@ -419,7 +436,6 @@
         options: { responsive: true, maintainAspectRatio: true, scales: { r: { min: 0, max: 100 } } }
       });
 
-      // Bar Chart
       if (barChart) barChart.destroy();
       barChart = new Chart(document.getElementById("barChart"), {
         type: "bar",
@@ -437,6 +453,7 @@
     document.getElementById("cekFoodBtn").addEventListener("click", async () => {
       const input = document.getElementById("foodInput").value.trim();
       const ageGroup = document.getElementById("ageGroup").value;
+      const source = document.getElementById("dataSource").value; // ambil pilihan
       const errorDiv = document.getElementById("errorMessage");
 
       if (!input) {
@@ -456,7 +473,7 @@
       errorDiv.classList.add("hidden");
 
       try {
-        const product = await searchFood(foodName);
+        const product = await searchFood(foodName, source);
         const nutriments = extractNutriments(product);
         const scores = calculateScores(nutriments, weight, ageGroup);
         displayResult(scores, product.product_name || foodName, weight, ageGroup);
