@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NutriCheck + Edamam (API siap pakai)</title>
+  <title>NutriCheck · Edamam siap pakai</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
@@ -31,6 +31,8 @@
     .progress-fill { height: 100%; color: white; font-size: 13px; text-align: center; line-height: 24px; font-weight: 500; }
     .good { background: #1e8e3e; } .warning { background: #f9a825; } .bad { background: #c53929; }
     .chart-container { height: 200px; margin: 20px 0; }
+    /* beri jarak antar chart */
+    .chart-wrapper .chart-container:first-child { margin-bottom: 30px; }
     .recommend-box { background: #e4f0fa; padding: 16px; border-radius: 20px; border-left: 5px solid #1e3a5f; margin-top: 16px; }
     .footer-note { font-size: 12px; color: #7a8faa; text-align: center; margin-top: 16px; }
     .error-box { background: #ffebee; padding: 16px; border-radius: 16px; border-left: 5px solid #c62828; margin: 10px 0; color: #b71c1c; }
@@ -50,8 +52,8 @@
     <input type="text" id="username" placeholder="Nama (opsional)" value="" />
     <div style="margin: 16px 0 8px; border-top: 1px dashed #bdd3e8;"></div>
     <h3 style="font-size: 16px; margin-bottom: 6px;">🔑 Edamam API (terisi otomatis)</h3>
-    <input type="text" id="edamamAppId" placeholder="App ID" />
-    <input type="text" id="edamamAppKey" placeholder="App Key" />
+    <input type="text" id="edamamAppId" placeholder="App ID" value="83a6c971" />
+    <input type="text" id="edamamAppKey" placeholder="App Key" value="f57d9ecae7775582f830d07bfeecfbf4" />
     <p class="small-note">API key default sudah disertakan. Anda bisa menggantinya jika perlu.</p>
     <button id="saveUserBtn">Simpan Pengaturan</button>
   </section>
@@ -97,7 +99,7 @@
 
 <script>
   (function() {
-    // ================== DEFAULT API KEY (dari user) ==================
+    // ================== DEFAULT API KEY (langsung dimasukkan) ==================
     const DEFAULT_APP_ID = "83a6c971";
     const DEFAULT_APP_KEY = "f57d9ecae7775582f830d07bfeecfbf4";
 
@@ -123,7 +125,7 @@
 
     const foodSuggestions = Object.keys(FALLBACK);
 
-    // Tampilkan nilai di input
+    // Tampilkan nilai di input akun (default sudah terisi)
     document.getElementById("username").value = currentUser;
     document.getElementById("edamamAppId").value = edamamId;
     document.getElementById("edamamAppKey").value = edamamKey;
