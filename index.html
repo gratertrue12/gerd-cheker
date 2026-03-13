@@ -3,71 +3,323 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GERD Checker Pro</title>
-  <!-- Chart.js & ml5 (CDN aman) -->
+  <title>GERD Checker (Open Food Facts)</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ===== CSS (sama seperti sebelumnya) ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+    body { background: #eef2f7; display: flex; justify-content: center; padding: 10px; }
+    .app { width: 360px; min-height: 100vh; background: white; display: flex; flex-direction: column; border-radius: 24px 24px 0 0; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    .topbar { background: #2E7D32; color: white; padding: 20px 16px; text-align: center; }
+    .topbar h1 { font-size: 26px; margin-bottom: 4px; }
+    .topbar p { font-size: 15px; opacity: 0.9; }
+    .section { padding: 20px 16px; flex: 1; overflow-y: auto; background: #f9fbfd; }
+    .hidden { display: none !important; }
+    .card { background: white; padding: 16px; margin-bottom: 16px; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #eaeef2; }
+    h2 { font-size: 20px; margin-bottom: 16px; color: #1e2b3c; }
+    input[type="text"], input[type="number"] { width: 100%; padding: 14px 16px; margin: 8px 0; border-radius: 30px; border: 1px solid #cfd9e6; font-size: 15px; }
+    input:focus { border-color: #2E7D32; outline: none; box-shadow: 0 0 0 3px rgba(46,125,50,0.1); }
+    button { width: 100%; padding: 14px; margin: 8px 0; border: none; border-radius: 30px; background: #2E7D32; color: white; font-size: 16px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #1B5E20; }
+    .navbar { display: flex; justify-content: space-around; background: white; border-top: 1px solid #dce5ed; padding: 8px 0 12px; }
+    .navbar button { background: none; color: #4a5a6e; font-size: 13px; flex: 1; margin: 0 4px; padding: 10px 0; border-radius: 40px; }
+    .navbar button:hover { background: #e8f0fe; color: #1B5E20; }
+    .food-card { padding: 14px 16px; background: white; margin: 8px 0; border-radius: 20px; cursor: pointer; border: 1px solid #e2eaf1; }
+    .food-card:hover { background: #f4f9ff; border-color: #2E7D32; }
+    .nutrition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f2f6fa; padding: 16px; border-radius: 24px; margin: 16px 0; }
+    .progress { background: #e9ecf0; height: 28px; border-radius: 40px; margin: 16px 0; overflow: hidden; }
+    .progress-bar { height: 100%; color: white; font-size: 14px; text-align: center; line-height: 28px; }
+    .good { background: #2E7D32; }
+    .warning { background: #f57c00; }
+    .bad { background: #c62828; }
+    .recommend { background: #e3f2fd; padding: 14px; border-radius: 24px; border-left: 5px solid #0d47a1; }
+    #historyList .card { display: flex; justify-content: space-between; font-size: 14px; }
+    .footer { text-align: center; font-size: 11px; color: #888; margin-top: 16px; }
+  </style>
 </head>
 <body>
-  <div class="app">
-    <div class="topbar">
-      <h1>GERD Checker</h1>
-      <p id="welcome">Halo, selamat datang!</p>
-    </div>
-
-    <!-- Akun -->
-    <section id="account" class="section">
-      <h2>👤 Akun (Opsional)</h2>
-      <input type="text" id="username" placeholder="Nama akun" />
-      <button id="saveUserBtn">Simpan Akun</button>
-    </section>
-
-    <!-- Makanan -->
-    <section id="food" class="section hidden">
-      <h2>🍽️ Cek Makanan</h2>
-      <input type="text" id="searchFood" placeholder="Cari makanan cepat..." />
-      <div id="foodListContainer"></div>
-      <input type="text" id="foodInput" placeholder="Contoh: 100 g apel" />
-      <button id="cekFoodBtn">🔍 Cek Skor GERD</button>
-      <div id="result"></div>
-      <canvas id="nutritionChart" width="300" height="200"></canvas>
-
-      <hr />
-      <button id="openCameraBtn">📸 Buka Kamera</button>
-      <video id="camera" class="hidden" autoplay playsinline muted></video>
-      <button id="takePhotoBtn" class="hidden">📷 Ambil Foto</button>
-      <button id="closeCameraBtn" class="hidden">❌ Tutup Kamera</button>
-      <img id="capturedImage" class="hidden" />
-    </section>
-
-    <!-- BMI -->
-    <section id="bmi" class="section hidden">
-      <h2>⚖️ Kalkulator BMI</h2>
-      <input type="number" id="weight" placeholder="Berat (kg)" />
-      <input type="number" id="height" placeholder="Tinggi (cm)" />
-      <button id="bmiBtn">Hitung BMI</button>
-      <div id="bmiResult"></div>
-    </section>
-
-    <!-- Riwayat -->
-    <section id="riwayat" class="section hidden">
-      <h2>📜 Riwayat Pengecekan</h2>
-      <div id="historyList"></div>
-      <button id="exportCsvBtn">📥 Export CSV</button>
-    </section>
-
-    <!-- Navigasi Bawah -->
-    <div class="navbar">
-      <button data-section="account">👤 Akun</button>
-      <button data-section="food">🍲 Makanan</button>
-      <button data-section="bmi">⚖️ BMI</button>
-      <button data-section="riwayat">📜 Riwayat</button>
-    </div>
+<div class="app">
+  <div class="topbar">
+    <h1>GERD Checker</h1>
+    <p id="welcome">Halo, selamat datang!</p>
   </div>
 
-  <script src="script.js"></script>
+  <!-- Akun -->
+  <section id="account" class="section">
+    <h2>👤 Akun (Opsional)</h2>
+    <input type="text" id="username" placeholder="Nama akun" />
+    <button id="saveUserBtn">Simpan Akun</button>
+  </section>
+
+  <!-- Makanan -->
+  <section id="food" class="section hidden">
+    <h2>🍽️ Cek Makanan</h2>
+    <input type="text" id="searchFood" placeholder="Cari makanan cepat..." />
+    <div id="foodListContainer"></div>
+    <input type="text" id="foodInput" placeholder="Contoh: 100g apel atau 100 g apple" />
+    <button id="cekFoodBtn">🔍 Cek Skor GERD</button>
+    <div id="result"></div>
+    <canvas id="nutritionChart" width="300" height="200"></canvas>
+    <!-- Kamera dihapus karena fokus ke nutrisi -->
+  </section>
+
+  <!-- BMI -->
+  <section id="bmi" class="section hidden">
+    <h2>⚖️ Kalkulator BMI</h2>
+    <input type="number" id="weight" placeholder="Berat (kg)" />
+    <input type="number" id="height" placeholder="Tinggi (cm)" />
+    <button id="bmiBtn">Hitung BMI</button>
+    <div id="bmiResult"></div>
+  </section>
+
+  <!-- Riwayat -->
+  <section id="riwayat" class="section hidden">
+    <h2>📜 Riwayat Pengecekan</h2>
+    <div id="historyList"></div>
+    <button id="exportCsvBtn">📥 Export CSV</button>
+  </section>
+
+  <!-- Navigasi Bawah -->
+  <div class="navbar">
+    <button data-section="account">👤 Akun</button>
+    <button data-section="food">🍲 Makanan</button>
+    <button data-section="bmi">⚖️ BMI</button>
+    <button data-section="riwayat">📜 Riwayat</button>
+  </div>
+  <div class="footer">Data nutrisi dari Open Food Facts</div>
+</div>
+
+<script>
+  (function() {
+    // ========== TIDAK PERLU API KEY ==========
+    let chart;
+    let currentUser = localStorage.getItem("user") || "";
+
+    // Daftar makanan cepat (opsional)
+    const foodList = [
+      { name: "Air Kelapa", normal: "coconut water" },
+      { name: "Almond",    normal: "almonds" },
+      { name: "Apel",      normal: "apple" },
+      { name: "Brokoli",   normal: "broccoli" },
+      { name: "Wortel",    normal: "carrot" },
+      { name: "Cokelat",   normal: "dark chocolate" },
+      { name: "Ayam",      normal: "chicken" },
+      { name: "Salmon",    normal: "salmon" },
+      { name: "Telur",     normal: "egg" },
+      { name: "Oatmeal",   normal: "oatmeal" },
+      { name: "Roti",      normal: "whole wheat bread" },
+      { name: "Tempe",     normal: "tempeh" },
+      { name: "Yogurt",    normal: "yogurt" }
+    ];
+
+    // ========== FUNGSI UI ==========
+    function showSection(id) {
+      document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
+      document.getElementById(id)?.classList.remove("hidden");
+      if (id === "riwayat") loadHistory();
+      if (id === "food") renderFoodList(foodList);
+    }
+
+    document.querySelectorAll(".navbar button").forEach(btn => {
+      btn.addEventListener("click", () => showSection(btn.dataset.section));
+    });
+
+    // ========== AKUN ==========
+    document.getElementById("saveUserBtn").addEventListener("click", () => {
+      const name = document.getElementById("username").value.trim();
+      currentUser = name;
+      if (currentUser) {
+        localStorage.setItem("user", currentUser);
+        document.getElementById("welcome").innerText = "Halo, " + currentUser + " 👋";
+      } else {
+        localStorage.removeItem("user");
+        document.getElementById("welcome").innerText = "Halo, selamat datang!";
+      }
+    });
+
+    // ========== DAFTAR MAKANAN CEPAT ==========
+    function renderFoodList(list) {
+      const container = document.getElementById("foodListContainer");
+      container.innerHTML = "";
+      list.forEach(f => {
+        const div = document.createElement("div");
+        div.className = "food-card";
+        div.innerText = `${f.name} — ${f.normal}`;
+        div.onclick = () => document.getElementById("foodInput").value = f.normal;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById("searchFood")?.addEventListener("input", (e) => {
+      const query = e.target.value.toLowerCase();
+      renderFoodList(foodList.filter(f => f.name.toLowerCase().includes(query)));
+    });
+    renderFoodList(foodList);
+
+    // ========== FUNGSI MENCARI MAKANAN DI OPEN FOOD FACTS ==========
+    async function searchOpenFoodFacts(query) {
+      // Ubah query menjadi format yang sesuai: hilangkan angka dan satuan? 
+      // Kita akan mengambil kata kunci saja, misal "apple"
+      // Tapi biarkan API yang menangani; kita bisa kirim raw query.
+      const url = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Gagal menghubungi Open Food Facts");
+      const data = await response.json();
+      if (!data.products || data.products.length === 0) {
+        throw new Error("Makanan tidak ditemukan");
+      }
+      // Ambil produk pertama
+      const product = data.products[0];
+      // Nutrisi ada di product.nutriments (per 100g)
+      const nutriments = product.nutriments || {};
+      // Nilai default 0 jika tidak ada
+      const stats = {
+        cal: nutriments['energy-kcal_100g'] || nutriments.energy_100g || 0,
+        fat: nutriments.fat_100g || 0,
+        protein: nutriments.proteins_100g || 0,
+        carbs: nutriments.carbohydrates_100g || 0,
+        fiber: nutriments.fiber_100g || 0,
+        sugar: nutriments.sugars_100g || 0,
+        sodium: nutriments.sodium_100g || 0,
+        cholesterol: nutriments.cholesterol_100g || 0
+      };
+      return stats;
+    }
+
+    // ========== CEK MAKANAN ==========
+    document.getElementById("cekFoodBtn").addEventListener("click", async () => {
+      let query = document.getElementById("foodInput").value.trim();
+      if (!query) {
+        alert("Masukkan makanan, contoh: apple");
+        return;
+      }
+
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "<p class='card'>⏳ Mengambil data dari Open Food Facts...</p>";
+
+      try {
+        const stats = await searchOpenFoodFacts(query);
+
+        // Skor GERD (sama)
+        let score = 100;
+        if (stats.fat > 15) score -= 20;
+        if (stats.sugar > 15) score -= 15;
+        if (stats.sodium > 500) score -= 15;
+        if (stats.cal > 350) score -= 10;
+        if (stats.fiber > 5) score += 5;
+        score = Math.min(100, Math.max(0, score));
+
+        let cls = "good", rekomendasi = "✅ Makanan ini cukup aman untuk GERD.";
+        if (score < 80) { cls = "warning"; rekomendasi = "⚠️ Konsumsi hati-hati."; }
+        if (score < 50) { cls = "bad"; rekomendasi = "❌ Sebaiknya hindari."; }
+
+        resultDiv.innerHTML = `
+          <div class="card">
+            <div class="nutrition-grid">
+              <div>🔥 Kalori: ${stats.cal.toFixed(1)} kcal</div>
+              <div>🧈 Lemak: ${stats.fat.toFixed(1)} g</div>
+              <div>🥩 Protein: ${stats.protein.toFixed(1)} g</div>
+              <div>🍚 Karbo: ${stats.carbs.toFixed(1)} g</div>
+              <div>🌾 Serat: ${stats.fiber.toFixed(1)} g</div>
+              <div>🍬 Gula: ${stats.sugar.toFixed(1)} g</div>
+              <div>🧂 Sodium: ${stats.sodium.toFixed(1)} mg</div>
+              <div>🥚 Kolesterol: ${stats.cholesterol.toFixed(1)} mg</div>
+            </div>
+            <div class="progress">
+              <div class="progress-bar ${cls}" style="width:${score}%">
+                Skor GERD ${Math.round(score)}/100
+              </div>
+            </div>
+            <div class="recommend">💡 ${rekomendasi}</div>
+          </div>
+        `;
+
+        // Update chart
+        const canvas = document.getElementById("nutritionChart");
+        if (chart) chart.destroy();
+        chart = new Chart(canvas, {
+          type: "bar",
+          data: {
+            labels: ["Kalori", "Lemak", "Protein", "Karbo", "Serat", "Gula"],
+            datasets: [{
+              data: [stats.cal, stats.fat, stats.protein, stats.carbs, stats.fiber, stats.sugar],
+              backgroundColor: ['#2E7D32', '#f57c00', '#1976D2', '#7b1fa2', '#388e3c', '#d32f2f']
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        // Simpan riwayat
+        if (currentUser) {
+          const history = JSON.parse(localStorage.getItem("history")) || {};
+          if (!history[currentUser]) history[currentUser] = [];
+          history[currentUser].push({
+            food: query,
+            score: Math.round(score),
+            time: new Date().toLocaleString("id-ID")
+          });
+          localStorage.setItem("history", JSON.stringify(history));
+        }
+
+      } catch (error) {
+        resultDiv.innerHTML = `<p class="card">❌ Gagal: ${error.message}</p>`;
+      }
+    });
+
+    // ========== BMI ==========
+    document.getElementById("bmiBtn").addEventListener("click", () => {
+      const w = parseFloat(document.getElementById("weight").value);
+      const h = parseFloat(document.getElementById("height").value) / 100;
+      if (!w || !h || w <= 0 || h <= 0) {
+        alert("Masukkan berat & tinggi valid.");
+        return;
+      }
+      const bmi = w / (h * h);
+      let cat = bmi < 18.5 ? "Kurus" : bmi < 25 ? "Normal" : bmi < 30 ? "Kelebihan berat" : "Obesitas";
+      document.getElementById("bmiResult").innerHTML = `<div class="card"><strong>IMT = ${bmi.toFixed(1)}</strong> (${cat})</div>`;
+    });
+
+    // ========== RIWAYAT & EKSPOR CSV ==========
+    function loadHistory() {
+      const listDiv = document.getElementById("historyList");
+      listDiv.innerHTML = "";
+      if (!currentUser) {
+        listDiv.innerHTML = "<p class='card'>🔒 Login untuk melihat riwayat.</p>";
+        return;
+      }
+      const history = JSON.parse(localStorage.getItem("history"))?.[currentUser] || [];
+      if (history.length === 0) {
+        listDiv.innerHTML = "<p class='card'>📭 Belum ada riwayat.</p>";
+        return;
+      }
+      history.slice().reverse().forEach(item => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `<span>${item.time}</span> <strong>${item.food}</strong> <span style="color:${item.score>=80?'green':item.score>=50?'orange':'red'}">${item.score}</span>`;
+        listDiv.appendChild(div);
+      });
+    }
+
+    document.getElementById("exportCsvBtn").addEventListener("click", () => {
+      if (!currentUser) return alert("Login dulu.");
+      const history = JSON.parse(localStorage.getItem("history"))?.[currentUser] || [];
+      if (history.length === 0) return alert("Tidak ada data.");
+      let csv = "Waktu,Makanan,Skor\n";
+      history.forEach(i => csv += `"${i.time}","${i.food}",${i.score}\n`);
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `riwayat_${currentUser}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ========== INIT ==========
+    if (currentUser) {
+      document.getElementById("welcome").innerText = "Halo kembali, " + currentUser + " 👋";
+    }
+  })();
+</script>
 </body>
 </html>
-
-
-
