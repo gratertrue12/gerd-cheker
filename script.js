@@ -6,7 +6,6 @@ const LOGMEAL_TOKEN = "937a44034a0fac902bd07ab4bceae7a13a233497"; // Ganti jika 
 // ================= GLOBAL VARIABEL =================
 let chart;
 let currentUser = localStorage.getItem("user") || "";
-let classifier = null;           // untuk ML5 MobileNet
 let cameraStream = null;
 
 // Daftar makanan cepat pilih
@@ -26,32 +25,13 @@ const foodList = [
   { name: "Yogurt",    normal: "1 cup yogurt" }
 ];
 
-// Mapping fallback MobileNet ke nama sederhana
-const mapping = {
-  "bottle": "water",
-  "iced tea": "tea",
-  "espresso": "coffee",
-  "cappuccino": "coffee",
-  "banana": "banana",
-  "apple": "apple",
-  "orange": "orange"
-};
-
-// ================= INISIALISASI ML5 =================
-ml5.imageClassifier('MobileNet').then(model => {
-  classifier = model;
-  console.log("✅ MobileNet siap digunakan.");
-}).catch(err => {
-  console.warn("⚠️ Gagal memuat MobileNet:", err);
-});
-
 // ================= FUNGSI UI =================
 function showSection(sectionId) {
   document.querySelectorAll(".section").forEach(sec => sec.classList.add("hidden"));
   const target = document.getElementById(sectionId);
   if (target) target.classList.remove("hidden");
   if (sectionId === "riwayat") loadHistory();
-  if (sectionId === "food") renderFoodList(foodList); // refresh daftar
+  if (sectionId === "food") renderFoodList(foodList);
 }
 
 // Event listener navbar
@@ -92,14 +72,13 @@ document.getElementById("searchFood")?.addEventListener("input", (e) => {
   renderFoodList(filtered);
 });
 
-// Tampilkan semua saat pertama
 renderFoodList(foodList);
 
 // ================= CEK MAKANAN (EDAMAM) =================
 document.getElementById("cekFoodBtn").addEventListener("click", async () => {
   const query = document.getElementById("foodInput").value.trim();
   if (!query) {
-    alert("Masukkan nama makanan beserta takaran, contoh: 100 g apel");
+    alert("Masukkan makanan beserta takaran, contoh: 100 g apel");
     return;
   }
 
@@ -133,29 +112,26 @@ document.getElementById("cekFoodBtn").addEventListener("click", async () => {
       cholesterol: nutrients.CHOLE?.quantity || 0
     };
 
-    // Skor GERD berbasis bukti sederhana
+    // Skor GERD
     let score = 100;
     if (stats.fat > 15) score -= 20;
     if (stats.sugar > 15) score -= 15;
     if (stats.sodium > 500) score -= 15;
     if (stats.cal > 350) score -= 10;
-    if (stats.fiber > 5) score += 5;  // serat membantu
-    if (score > 100) score = 100;
-    if (score < 0) score = 0;
+    if (stats.fiber > 5) score += 5;
+    score = Math.min(100, Math.max(0, score));
 
     let cls = "good";
-    let rekomendasi = "";
-    if (score >= 80) {
-      rekomendasi = "✅ Makanan ini cukup aman untuk GERD.";
-    } else if (score >= 50) {
+    let rekomendasi = "✅ Makanan ini cukup aman untuk GERD.";
+    if (score < 80) {
       cls = "warning";
       rekomendasi = "⚠️ Konsumsi dengan hati-hati, jangan berlebihan.";
-    } else {
+    }
+    if (score < 50) {
       cls = "bad";
       rekomendasi = "❌ Sebaiknya hindari. Bisa memicu asam lambung.";
     }
 
-    // Tampilkan hasil
     resultDiv.innerHTML = `
       <div class="card">
         <div class="nutrition-grid">
@@ -177,7 +153,7 @@ document.getElementById("cekFoodBtn").addEventListener("click", async () => {
       </div>
     `;
 
-    // Update chart
+    // Chart
     const canvas = document.getElementById("nutritionChart");
     if (chart) chart.destroy();
     if (canvas) {
@@ -238,7 +214,7 @@ document.getElementById("bmiBtn").addEventListener("click", () => {
     </div>`;
 });
 
-// ================= KAMERA & LOGMEAL + FALLBACK =================
+// ================= KAMERA & LOGMEAL (TANPA MOBILENET) =================
 const video = document.getElementById("camera");
 const takePhotoBtn = document.getElementById("takePhotoBtn");
 const closeCameraBtn = document.getElementById("closeCameraBtn");
@@ -286,7 +262,7 @@ takePhotoBtn.addEventListener("click", () => {
   capturedImg.classList.remove("hidden");
   document.getElementById("foodInput").value = "🔍 Mendeteksi...";
 
-  // Coba LogMeal dulu
+  // Hanya gunakan LogMeal
   detectWithLogMeal(dataUrl);
 });
 
@@ -311,41 +287,9 @@ async function detectWithLogMeal(dataUrl) {
     const name = data.recognition_results?.[0]?.name || "Tidak dikenal";
     document.getElementById("foodInput").value = name;
   } catch (e) {
-    console.warn("LogMeal gagal, fallback ke MobileNet:", e);
-    fallbackMobileNet();
-  }
-}
-
-function fallbackMobileNet() {
-  if (!classifier) {
-    document.getElementById("foodInput").value = "Model belum siap, coba lagi nanti.";
-    return;
-  }
-  // Tunggu gambar benar-benar termuat
-  if (!capturedImg.complete) {
-    capturedImg.onload = () => classifyImage();
-  } else {
-    classifyImage();
-  }
-
-  function classifyImage() {
-    classifier.classify(capturedImg, (err, results) => {
-      if (err || !results || results.length === 0) {
-        document.getElementById("foodInput").value = "Gagal mengenali";
-        return;
-      }
-      let label = results[0].label.toLowerCase();
-      // Sederhanakan dengan mapping
-      for (const key in mapping) {
-        if (label.includes(key)) {
-          label = mapping[key];
-          break;
-        }
-      }
-      // Coba cocokkan dengan foodList
-      const found = foodList.find(f => label.includes(f.name.toLowerCase()));
-      document.getElementById("foodInput").value = found ? found.normal : label;
-    });
+    console.error("LogMeal gagal:", e);
+    document.getElementById("foodInput").value = "❌ Gagal mendeteksi, coba manual.";
+    // Tidak ada fallback ke MobileNet
   }
 }
 
